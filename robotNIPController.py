@@ -59,8 +59,6 @@ gripper = None
 dashboard = None
 io = None
 
-cfil = None
-
 class RobotClient(metaclass=abc.ABCMeta):
     # 初期化処理
     def initialize(self, directory):
@@ -428,6 +426,8 @@ memory_size = 5e4
 device = "cpu"  
 approach_memory = ApproachMemory(memory_size, device)
 
+cfil = None
+
 class Convert_c_T_r(RobotClient):
     def execute(self, solution):
         try:
@@ -471,13 +471,27 @@ class Convert_c_T_r(RobotClient):
                 logging.error("{} : {}".format(type(e), e))
                 return solution.judge_fail()
 
+class InitializeCFIL(RobotClient):
+    def execute(self, solution):
+        import torch
+        
+        global cfil
+        try:
+            cfil = CFIL_ABN(abn_dir="hoge_dir")
+            return solution.judge_pass() 
+        except Exception as e:
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
 class LoadTrainedModel(RobotClient):
     def execute(self, solution):
         import torch
         
         global cfil
         try:
-            cfil = CFIL_ABN()
+            if cfil is None:
+                return solution.judge_fail()
             cfil.load_for_test()
             return solution.judge_pass() 
         except Exception as e:
@@ -495,8 +509,13 @@ class CFILExecute(RobotClient):
             
             image_id = solution.get_image_id("image")
             image = solution.get_image(image_id)
-
             output = cfil.approach_test_from_image(image)
+            position_eb = [output[0, 0], output[0, 1], 0.01, 0, 0, output[0, 2]]
+            ####必要な場合はここで座標変換####
+
+            #推定したposeをNIP側に受け渡し
+            print("estimated pose: ", position_eb)
+            set_variable(solution, "estimated_pose", position_eb)
             return solution.judge_pass() 
         
         except Exception as e:
