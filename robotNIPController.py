@@ -27,7 +27,7 @@ from scipy.spatial.transform import Rotation
 
 import json
 
-from CFIL_for_NIP.agent import CFIL_ABN
+
 
 
 # パラメータ設定
@@ -91,16 +91,16 @@ class RobotConnect(RobotClient):
             print("rtde_r connected")
             if(io is None): io = RTDEIOInterface(ROBOT_IP)
             print("io connected")
-            gripper = None
-            if USE_GRIPPER == "socket": # EPcikをURのフランジに接続するとき
+            if(gripper is not None):
+                pass
+            elif USE_GRIPPER == "socket": # EPcikをURのフランジに接続するとき
                 gripper = RobotiqEpick()
                 gripper.connect(ROBOT_IP, 63352)
                 gripper.activate()
             elif USE_GRIPPER == "rtu": # EPickをCOMポートでPCに接続するとき
-                if(gripper is None):
-                    gripper = RobotiqRtu()
-                    gripper.connect("COM3")
-                    gripper.activate()
+                gripper = RobotiqRtu()
+                gripper.connect("COM3")
+                gripper.activate()
             elif USE_GRIPPER == "ejector": # 圧縮空気を使ってエジェクターから真空吸着するとき
                 gripper = VacuumGripper(_io=io, _rtde_r=rtde_r)
             else:
@@ -474,7 +474,7 @@ class Convert_c_T_r(RobotClient):
 class InitializeCFIL(RobotClient):
     def execute(self, solution):
         import torch
-        
+        from CFIL_for_NIP.agent import CFIL_ABN
         global cfil
         try:
             cfil = CFIL_ABN(abn_dir="hoge_dir")
@@ -499,7 +499,7 @@ class LoadTrainedModel(RobotClient):
             logging.error("{} : {}".format(type(e), e))
             return solution.judge_fail()
 
-class CFILExecute(RobotClient):
+class Estimate(RobotClient):
     def execute(self, solution):
         global cfil
         try:
