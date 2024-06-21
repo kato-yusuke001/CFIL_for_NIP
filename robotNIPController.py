@@ -398,6 +398,8 @@ class CheckPressure(RobotClient):
 def makeDict(value):
     if isinstance(value, list):
         return dict(zip(np.arange(1,len(value)+1), value))
+    if isinstance(value, np.ndarray):
+        return dict(zip(np.arange(1,len(value)+1), value.tolist()))
     elif isinstance(value, int):
         return {0:value}
     elif isinstance(value, float):
@@ -407,11 +409,17 @@ def makeDict(value):
 
 def set_variable(solution, variable_name, value):
     variable_id = solution.get_variable_id(variable_name)
+    if variable_id == 0:
+        print("Variable named {} did not found".format(variable_name))
+        return solution.judge_fail()
     solution.set_variable(variable_id, makeDict(value))
     return solution
 
 def get_variable(solution, variable_name):
     variable_id = solution.get_variable_id(variable_name)
+    if variable_id == 0:
+        print("Variable named {} did not found".format(variable_name))
+        return solution.judge_fail()
     val = list(solution.get_variable(variable_id).values())
     return val 
 
@@ -421,6 +429,7 @@ def get_variable(solution, variable_name):
 #############################################################################################################################################
 #############################################################################################################################################
 from CFIL_for_NIP.memory import ApproachMemory
+from CFIL_for_NIP import utils
 memory_size = 5e4
 # device = "cuda" if torch.cuda.is_available() else "cpu"  
 device = "cpu"  
@@ -566,6 +575,21 @@ class SaveCollectData(RobotClient):
             global approach_memory
             path = os.getcwd()
             approach_memory.save_joblib(os.path.join(path, "CFIL_for_NIP", "approach_memory"))
+            return solution.judge_pass()
+        except Exception as e:
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
+class Rotate(RobotClient):
+    def execute(self, solution):
+        global rtde_r
+        try:
+            base_pose = get_variable(solution, "robot_initial_pose")
+            angles = get_variable(solution, "rotate_angles")
+            angles = [np.deg2rad(angle) for angle in angles]
+            goal_pose = utils.rotate(base_pose, angles)
+            set_variable(solution, "target_rotVec", goal_pose[3:])
             return solution.judge_pass()
         except Exception as e:
             print(type(e), e)
