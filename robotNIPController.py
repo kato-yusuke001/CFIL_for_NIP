@@ -27,7 +27,7 @@ from scipy.spatial.transform import Rotation
 
 import json
 
-
+import cv2
 
 
 # パラメータ設定
@@ -44,8 +44,9 @@ logging.basicConfig(filename=log_file_path, level=LOGLEVEL, format=log_format)
 # ロボット設定
 print(os.getcwd())
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_kato.json"
-ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
+# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_sim.json"
+ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
 json_file = open(ROBOTPARAMS, "r")
 json_dict = json.load(json_file)
 ROBOT_IP = json_dict["robot_ip"]
@@ -271,6 +272,23 @@ class GetCurrentPose(RobotClient):
             logging.error("{} : {}".format(type(e), e))
             return solution.judge_fail()
 
+# 自己位置のリクエスト (mm)
+class GetCurrentPose_mm(RobotClient):
+    def execute(self, solution):
+        global rtde_r
+        try:                       
+            current_pose = rtde_r.getActualTCPPose()
+            current_pose[:3] *= 1000
+            print("current pose[mm]: ", current_pose)
+            set_variable(solution, "current_robot_pose", current_pose)
+            return solution.judge_pass()
+         
+        except Exception as e:
+            # 全ての種類のエラーを取得
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
 # ロボットの手先位置(TCP, tool center point)を設定する
 class SetTCP(RobotClient):
     # 実行
@@ -334,6 +352,51 @@ class MoveL(RobotClient):
         if(dst[2]> 0.15):
             dst[2] = 0.15
         return dst
+
+# MoveLリクエスト (mm)
+class MoveL_mm(RobotClient):
+    # 実行
+    def execute(self, solution):
+        global rtde_c
+        try:
+            # NIP配列変数から移動先の姿勢を取得
+            variable_id_dst = solution.get_variable_id("dst")
+            if variable_id_dst == 0:
+                print("Variable named dst did not found")
+                logging.error("Variable named dst did not found")
+                return solution.judge_fail()
+            dst = list(solution.get_variable(variable_id_dst).values())
+            if(sum(dst)==0):
+                print("moveL failed, dst is all 0")
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+            dst[0] /= 1000.0
+            dst[1] /= 1000.0
+            dst[2] /= 1000.0
+            dst = self.checkLimit(dst) 
+            # ret = rtde_c.moveL(dst, speed=0.15, acceleration=0.5)
+            ret = rtde_c.moveL(dst, speed=1.15, acceleration=1.5)
+            if(ret):
+                print("moveL(mm) success: ", dst)
+                # set_variable(solution, "Server_Connect", 1)
+                return solution.judge_pass()
+            else:
+                print("moveL(mm) failed")
+                set_variable(solution, "Server_Connect", 0)
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+        
+        except Exception as e:
+            # 全ての種類のエラーを取得
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
+    def checkLimit(self, dst):
+        if(dst[2]< -0.005):
+            dst[2] = -0.005
+        if(dst[2]> 0.15):
+            dst[2] = 0.15
+        return dst
+
 
 class Vac_On(RobotClient):
     def execute(self, solution):
@@ -550,19 +613,25 @@ class ExecuteCollectData(RobotClient):
     def execute(self, solution):
         try:
             global rtde_r, approach_memory
-            current_pose = rtde_r.getActualTCPPose()
-            print("current pose: ", current_pose)
+            s_time = time.time()
+            current_pose = np.array(rtde_r.getActualTCPPose())
             image_id = solution.get_image_id("image")
             if image_id==0:
                 print("Image ID not found")
                 return solution.judge_fail()
-            image = solution.get_image(image_id)
-
+            image_tp = solution.get_image(image_id)
+            print(time.time() - s_time)
+            image, bit, ch, width, height = image_tp
+            image = np.array(list(image), dtype=np.uint8).reshape(height, width, ch)
+            print(time.time() - s_time)
+            # image = cv2.resize(image, (224, 224))
+            cv2.imwrite("image.jpg", image)
+            print(time.time() - s_time)
             if approach_memory.initialize is False:
                 approach_memory.initial_settings(image, current_pose) # 画像と姿勢のサイズの初期設定
 
             approach_memory.append(image, current_pose)
-
+            print(time.time() - s_time)
             return solution.judge_pass()
         except Exception as e:
             print(type(e), e)
@@ -574,7 +643,7 @@ class SaveCollectData(RobotClient):
         try:
             global approach_memory
             path = os.getcwd()
-            approach_memory.save_joblib(os.path.join(path, "CFIL_for_NIP", "approach_memory"))
+            approach_memory.save_joblib(os.path.join(path, "CFIL_for_NIP", "approach_memory.joblib"))
             return solution.judge_pass()
         except Exception as e:
             print(type(e), e)
