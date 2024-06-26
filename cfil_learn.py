@@ -13,7 +13,7 @@ from CFIL_for_NIP.memory import ApproachMemory
 
 from CFIL_for_NIP import utils
 
-class MakeDataSet():
+class CFILLearn():
     def __init__(self):
         memory_size = 5e4
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  
@@ -77,6 +77,6 @@ class MakeDataSet():
 if __name__ == "__main__":
     file_path = "CFIL_for_NIP\\train_data\\171947\\data.csv"
 
-    makeDataSet = MakeDataSet()
-    makeDataSet.loadCSV(filename=file_path)
-    makeDataSet.makeJobLib()
+    cl = CFILLearn()
+    cl.loadCSV(filename=file_path)
+    cl.makeJobLib()
