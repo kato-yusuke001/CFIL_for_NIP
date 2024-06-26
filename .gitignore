@@ -1,1 +1,4 @@
 *.pyc
+*.joblib
+CFIL_for_NIP/train_data
+image.jpg
