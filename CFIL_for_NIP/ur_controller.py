@@ -50,7 +50,8 @@ class URController():
 
         self.manager = None
 
-        self.camera_setup()
+        self.cam = None
+        # self.camera_setup()
         
         self.initialize()
 
@@ -68,16 +69,17 @@ class URController():
     def gripper_activate(self):
         self.gripper = VacuumGripper(_io=self.io, _rtde_r=self.rtde_r)
 
-    def camera_setup(self):
-        if self.use_camera == "spin":
-            print("use camera: spin")
-            from camera_modules import SpinCamera
-            self.cam = SpinCamera()
-        elif self.use_camera == "cv2":
-            print("use camera: cv2")
-            self.cam = cv2.VideoCapture(0)
-        else:
-            self.cam = None
+    def camera_setup(self, cam):
+        self.cam = cam
+        # if self.use_camera == "spin":
+        #     print("use camera: spin")
+        #     from camera_modules import SpinCamera
+        #     self.cam = SpinCamera()
+        # elif self.use_camera == "cv2":
+        #     print("use camera: cv2")
+        #     self.cam = cv2.VideoCapture(0)
+        # else:
+        #     self.cam = None
         
     def load_config_file(self, config_file):
         json_file = open(config_file, "r")

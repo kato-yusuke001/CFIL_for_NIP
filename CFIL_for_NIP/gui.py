@@ -5,9 +5,8 @@ import argparse
 import numpy as np
 from PIL import Image, ImageTk, ImageOps, ImageDraw  # 画像データ用
 
-from rtde_control import RTDEControlInterface
-from rtde_receive import RTDEReceiveInterface
-from rtde_io import RTDEIOInterface
+import EasyPySpin
+from camera_modules import CameraModules
 
 from scipy.spatial.transform import Rotation
 
@@ -17,11 +16,11 @@ import os
 import sys
 sys.path.append('../')
 
-from agent import CFIL_ABN, CoarseToFineImitation
+# from agent import CFIL_ABN, CoarseToFineImitation
 
 
 class Application(tk.Frame):
-    def __init__(self, master=None, no_robot = False, ur_sim=False):
+    def __init__(self, master=None, ur_sim=False, debug=False):
         super().__init__(master)
 
         self.master = master
@@ -30,11 +29,16 @@ class Application(tk.Frame):
         self.create_widgets()
         
         if ur_sim:
-            self.wakeupRobot(config_file="configs/robot_config_sim.json")
+            config_file="configs/robot_config_sim.json"
         else:
-            self.wakeupRobot()
+            config_file="configs/robot_config.json"
+        
+        if debug:
+            pass
+        else:
+            self.wakeupRobot(config_file=config_file)
 
-        self.camera_setup(no_robot)
+        self.camera_setup(module="cv2")
         
         self.disp_image()
 
@@ -55,18 +59,25 @@ class Application(tk.Frame):
 
         self.bt_reset = tk.Button(self.master, text="原点へ移動", command=self.move_home)
         self.bt_reset.grid(row=1, column=1)
-        self.bt_robot_move = tk.Button(self.master, text="ロボットを移動", command=self.move_robot)
+        self.bt_robot_move = tk.Button(self.master, text="教示位置へロボットを移動", command=self.move_robot)
         self.bt_robot_move.grid(row=1, column=10)
 
-        self.bt_data_collection = tk.Button(self.master, text="データ収集開始", command=self.collect_approach_traj)
-        self.bt_data_collection.grid(row=5, column=10)
+        self.bt_record_pose = tk.Button(self.master, text="教示を記録", command=self.record_pose)
+        self.bt_record_pose.grid(row=5, column=10)
+
+        # self.bt_data_collection = tk.Button(self.master, text="データ収集開始", command=self.collect_approach_traj)
+        # self.bt_data_collection.grid(row=5, column=10)
     
-    def camera_setup(self, no_robot=False):
-        # WIDTH = 640, HEIGHT = 480
-        if no_robot:
-            self.cam = Camera()
-        else:
-            self.cam = self.ur
+    def camera_setup(self, module="cv2"):
+        self.cam = CameraModules(module=module)
+
+        # # WIDTH = 640, HEIGHT = 480
+        # if module == "cv2":
+        #     self.cam = cv2.VideoCapture(0)
+        # elif module == "pyspin":
+        #     self.cam = EasyPySpin.VideoCapture(0)
+        # else:
+        #     NotImplementedError
 
     def disp_image(self):
         '''画像をCanvasに表示する'''
@@ -157,7 +168,7 @@ class Application(tk.Frame):
         return target_in_robotbase
 
     def move_robot(self):
-        if self.click_x is None or self.click_y is None:
+        if self.click_x is None or self.click_y is None or self.ur is None:
             return 
         target_in_camera = np.array([self.click_x, self.click_y, 1])
         target_in_robotbase = self.convert_c_T_r(target_in_camera)
@@ -165,31 +176,28 @@ class Application(tk.Frame):
         self.ur.moveL(target_in_robotbase)
     
     def move_home(self):
-        
+        if self.ur is None:
+            return
         self.ur.initialize()
 
-    def collect_approach_traj(self):
-        self.cfil = CFIL_ABN()
-        self.cfil.bottleneck_pose = self.ur.get_pose()
-        self.cfil.setupRobot(self.ur)
-        self.cfil.collect_approach_traj(num=100)
-        self.cfil.save_memory()
+    # def collect_approach_traj(self):
+    #     self.cfil = CFIL_ABN()
+    #     self.cfil.bottleneck_pose = self.ur.get_pose()
+    #     self.cfil.setupRobot(self.ur)
+    #     self.cfil.collect_approach_traj(num=100)
+    #     self.cfil.save_memory()
 
-class Camera:
-    def __init__(self):
-        self.cam = cv2.VideoCapture(0)
-    
-    def get_img(self):
-        ret, frame = self.cam.read()
-
-        return frame
+    def record_pose(self):
+        img = self.cam.get_img()
+        current_pose = self.ur.get_pose()
+        
 
 if __name__ == "__main__": 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--no_robot", action="store_true")
+    parser.add_argument("--debug", action="store_true")
     parser.add_argument("--sim", action="store_true")
     args = parser.parse_args()
     
     root = tk.Tk()
-    app = Application(master=root, no_robot=args.no_robot, ur_sim=args.sim)
+    app = Application(master=root, ur_sim=args.sim, debug=args.debug)
     app.mainloop()
