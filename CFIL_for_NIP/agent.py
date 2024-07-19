@@ -3,7 +3,7 @@ from operator import pos
 from unicodedata import name
 from urllib.parse import ParseResultBytes
 import torch
-import torchvision
+# import torchvision
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter

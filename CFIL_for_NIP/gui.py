@@ -13,6 +13,7 @@ from scipy.spatial.transform import Rotation
 from ur_controller import URController
 
 import os
+import csv
 import sys
 sys.path.append('../')
 
@@ -189,7 +190,15 @@ class Application(tk.Frame):
 
     def record_pose(self):
         img = self.cam.get_img()
-        current_pose = self.ur.get_pose()
+        # current_pose = self.ur.get_pose()
+        bottleneck = [0.0]*6
+        path = os.path.join("train_data","bottleneck.jpg")
+        bottleneck.append(path)
+        print(bottleneck)
+        cv2.imwrite(path, img)
+        with open(os.path.join("train_data","bottleneck.csv"), "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(bottleneck)
         
 
 if __name__ == "__main__": 

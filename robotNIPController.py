@@ -44,9 +44,9 @@ logging.basicConfig(filename=log_file_path, level=LOGLEVEL, format=log_format)
 # ロボット設定
 print(os.getcwd())
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_kato.json"
-# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
+ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_sim.json"
-ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
+# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
 json_file = open(ROBOTPARAMS, "r")
 json_dict = json.load(json_file)
 ROBOT_IP = json_dict["robot_ip"]
@@ -560,7 +560,7 @@ class LoadTrainedModel(RobotClient):
     def execute(self, solution):
         import torch
         
-        global cfil
+        global cfil, rtde_r
         try:
             if cfil is None:
                 return solution.judge_fail()
@@ -584,10 +584,13 @@ class Estimate(RobotClient):
             output = cfil.approach_test_from_image(image)
             position_eb = [output[0, 0], output[0, 1], 0.01, 0, 0, output[0, 2]]
             ####必要な場合はここで座標変換####
-
+            position_re = rtde_r.getCurrentTCPPose()
+            position_rb = utils.reverse_transform(position_re, position_eb)    
+            # position_rb[2] = self.bottleneck_pose[2] + 0.01
+            # position_rb = self.check_range(position_rb)
             #推定したposeをNIP側に受け渡し
-            print("estimated pose: ", position_eb)
-            set_variable(solution, "estimated_pose", position_eb)
+            print("estimated pose: ", position_rb)
+            set_variable(solution, "estimated_pose", position_rb)
             return solution.judge_pass() 
         
         except Exception as e:
