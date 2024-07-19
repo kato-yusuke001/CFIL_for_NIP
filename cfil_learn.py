@@ -64,7 +64,7 @@ class CFILLearn():
     def load_joblib(self, file_path=""):
         self.approach_memory.load_joblib(os.path.join(file_path,"approach_memory.joblib"))
 
-    def train(self, train_epochs=10000):
+    def train(self, train_epochs=10000, file_path=""):
         self.approach_model = ABN()
         self.approach_model.to(self.device)
         self.reg_approach_criterion = nn.MSELoss()
@@ -92,7 +92,7 @@ class CFILLearn():
                 print(" reg out_put: ", rx.detach()[0])
                 print(" att out_put: ", ax.detach()[0])
         
-        torch.save(self.approach_model.state_dict(), os.path.join("", "approach_model_final.pth"))
+        torch.save(self.approach_model.state_dict(), os.path.join(file_path, "approach_model_final.pth"))
 
         
 
@@ -103,4 +103,4 @@ if __name__ == "__main__":
     # cl.makeJobLib(file_path=file_path)
 
     cl.load_joblib(file_path=file_path)
-    cl.train()
+    cl.train(file_path=file_path)
