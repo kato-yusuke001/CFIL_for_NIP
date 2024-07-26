@@ -1,6 +1,7 @@
 *.pyc
 *.joblib
 *.csv
-__pycache__/
+*.log
+__pycache__
 CFIL_for_NIP/train_data
 image.jpg
