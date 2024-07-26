@@ -1,6 +1,8 @@
 import sys
-sys.path.append("C:\\Users\\4039423\\Desktop\\N.I.P._ver.7.4.0.0\\binary\\python\\CFIL_for_NIP")
-#print(sys.path)
+nip_path = "C:\\Users\\4039423\\Desktop\\N.I.P._ver.7.4.0.0\\binary\\python\\CFIL_for_NIP"
+if not nip_path in sys.path:
+    sys.path.append(nip_path)
+# print(sys.path)
 # print(sys.version)
 # print(sys.version_info)
 from pathlib import Path
@@ -11,7 +13,7 @@ print(os.getcwd())
 # import torch
 
 import abc
-import logging
+# import logging
 import time
 import numpy as np
 
@@ -29,17 +31,20 @@ import json
 
 import cv2
 
+from logger import setup_logger
 
-# パラメータ設定
-LOGFILENAME = "robotNIPController"
-LOGFILEROOT = "logs"
-LOGLEVEL = logging.DEBUG
+# # パラメータ設定
+# LOGFILENAME = "robotNIPController"
+# LOGFILEROOT = "logs"
+# LOGLEVEL = logging.INFO
 
-# ログ設定
-os.makedirs(LOGFILEROOT, exist_ok=True)
-log_file_path = LOGFILEROOT + "/" + LOGFILENAME + ".log"
-log_format = "%(asctime)s %(levelname)s:%(message)s"
-logging.basicConfig(filename=log_file_path, level=LOGLEVEL, format=log_format)
+# # ログ設定
+# os.makedirs(LOGFILEROOT, exist_ok=True)
+# log_file_path = LOGFILEROOT + "/" + LOGFILENAME + ".log"
+# log_format = "%(asctime)s %(levelname)s:%(message)s"
+# logging.basicConfig(filename=log_file_path, level=LOGLEVEL, format=log_format)
+
+logging = setup_logger("robotNIPController", "robotNIPController")
 
 # ロボット設定
 print(os.getcwd())
@@ -263,6 +268,8 @@ class GetCurrentPose(RobotClient):
         try:                       
             current_pose = rtde_r.getActualTCPPose()
             print("current pose: ", current_pose)
+            logging.info("GetCurrentPose[m] : {}".format(current_pose))
+
             set_variable(solution, "current_robot_pose", current_pose)
             return solution.judge_pass()
          
@@ -280,6 +287,7 @@ class GetCurrentPose_mm(RobotClient):
             current_pose = rtde_r.getActualTCPPose()
             current_pose[:3] *= 1000
             print("current pose[mm]: ", current_pose)
+            logging.info("GetCurrentPose[mm] : {}".format(current_pose))
             set_variable(solution, "current_robot_pose", current_pose)
             return solution.judge_pass()
          
@@ -311,6 +319,29 @@ class SetTCP(RobotClient):
             logging.error("{} : {}".format(type(e), e))
             return solution.judge_fail()
 
+class SetTCP_mm(RobotClient):
+    # 実行
+    def execute(self, solution):
+        global rtde_c
+        try:
+            # 設定したいtcpを取得
+            variable_id_tcp = solution.get_variable_id("tcp")
+            tcp = list(solution.get_variable(variable_id_tcp).values())
+            tcp[0] /= 1000.0
+            tcp[1] /= 1000.0
+            tcp[2] /= 1000.0
+            # tcpの設定
+            ret = rtde_c.setTcp(tcp)
+            if(ret):
+                return solution.judge_pass()
+            else:
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える  
+
+        except Exception as e:
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
 # MoveLリクエスト
 class MoveL(RobotClient):
     # 実行
@@ -324,6 +355,7 @@ class MoveL(RobotClient):
                 logging.error("Variable named dst did not found")
                 return solution.judge_fail()
             dst = list(solution.get_variable(variable_id_dst).values())
+            logging.info("MoveL dst: {}".format(dst))
             if(sum(dst)==0):
                 print("moveL failed, dst is all 0")
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
@@ -366,6 +398,7 @@ class MoveL_mm(RobotClient):
                 logging.error("Variable named dst did not found")
                 return solution.judge_fail()
             dst = list(solution.get_variable(variable_id_dst).values())
+            logging.info("MoveL mm dst: {}".format(dst))
             if(sum(dst)==0):
                 print("moveL failed, dst is all 0")
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
@@ -491,12 +524,14 @@ def get_variable(solution, variable_name):
 #CFIL
 #############################################################################################################################################
 #############################################################################################################################################
-from CFIL_for_NIP.memory import ApproachMemory
-from CFIL_for_NIP import utils
+# import torch
+# from CFIL_for_NIP.memory import ApproachMemory
+# from CFIL_for_NIP import utils
+# from CFIL_for_NIP.network import ABN
 memory_size = 5e4
 # device = "cuda" if torch.cuda.is_available() else "cpu"  
 device = "cpu"  
-approach_memory = ApproachMemory(memory_size, device)
+# approach_memory = ApproachMemory(memory_size, device)
 
 cfil = None
 
@@ -543,13 +578,43 @@ class Convert_c_T_r(RobotClient):
                 logging.error("{} : {}".format(type(e), e))
                 return solution.judge_fail()
 
+class CFIL:
+    def __init__(self):
+        import torch
+        self.device = "cuda" if torch.cuda.is_available() else "cpu" 
+        self.approach_model = ABN()
+        self.approach_model.to(self.device)
+
+        self.file_path = "CFIL_for_NIP\\train_data\\20240719150226"
+
+        self.image_size = 128
+
+    def loadTrainedModel(self):
+        import torch
+        self.approach_model.load_state_dict(torch.load(os.path.join(self.file_path, "approach_model_final.pth"),map_location=torch.device('cpu')))
+
+    def approach_test_from_image(self, image):
+        import torch
+        image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+        # utils.save_img(image, os.path.join(self.abn_dir, "test_output"))
+        image = np.transpose(image, [2, 0, 1])
+        image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
+        image_tensor = torch.unsqueeze(image_tensor, 0)
+        self.approach_model.eval()
+        time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
+        with torch.no_grad():
+            # appraoch
+            output_tensor, _, att = self.approach_model(image_tensor)
+            output = output_tensor.to('cpu').detach().numpy().copy()
+
+        return output[0]
+
 class InitializeCFIL(RobotClient):
     def execute(self, solution):
-        import torch
-        from CFIL_for_NIP.agent import CFIL_ABN
         global cfil
         try:
-            cfil = CFIL_ABN(abn_dir="hoge_dir")
+            print("initialze CFIL")
+            cfil = CFIL()
             return solution.judge_pass() 
         except Exception as e:
             print(type(e), e)
@@ -557,14 +622,13 @@ class InitializeCFIL(RobotClient):
             return solution.judge_fail()
 
 class LoadTrainedModel(RobotClient):
-    def execute(self, solution):
-        import torch
-        
-        global cfil, rtde_r
+    def execute(self, solution):        
+        global cfil
         try:
             if cfil is None:
+                print("CFIL model is not prepared")
                 return solution.judge_fail()
-            cfil.load_for_test()
+            cfil.loadTrainedModel()
             return solution.judge_pass() 
         except Exception as e:
             print(type(e), e)
