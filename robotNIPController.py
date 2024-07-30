@@ -524,7 +524,7 @@ def get_variable(solution, variable_name):
 #CFIL
 #############################################################################################################################################
 #############################################################################################################################################
-# import torch
+import torch
 # from CFIL_for_NIP.memory import ApproachMemory
 # from CFIL_for_NIP import utils
 # from CFIL_for_NIP.network import ABN

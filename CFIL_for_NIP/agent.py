@@ -738,17 +738,17 @@ class CoarseToFineImitation():
             self.load_trajectory()
 
 class CFIL_ABN(CoarseToFineImitation):
-    def __init__(self, log_dir=None, abn_dir=None, **args):
+    def __init__(self, log_dir=None, **args):
         super().__init__(log_dir=log_dir, **args)
 
         if log_dir is None:
-            self.abn_dir = "logs/abn/{}".format(datetime.now().strftime("%Y%m%d-%H%M"))
+            self.log_dir = "log"
         else:
-            self.abn_dir = os.path.join("logs/abn", log_dir)
-            print("abn log folder", self.abn_dir)
+            self.log_dir = log_dir
+            print("abn log folder", self.log_dir)
         self.writer = None
-        if not os.path.exists(self.abn_dir):
-            os.makedirs(self.abn_dir)
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
 
         self.approach_model = ABN()
         self.approach_model.to(self.device)
@@ -766,7 +766,7 @@ class CFIL_ABN(CoarseToFineImitation):
     def train(self, train_epochs=10000, writer=None, last_inch=False):
         if writer is None:
             tensorboard_dir = os.path.join(
-                    self.abn_dir,
+                    self.log_dir,
                     "tensorboad",
                     "abn_{}".format(datetime.now().strftime("%Y%m%d-%H%M")),
                 )
@@ -806,7 +806,7 @@ class CFIL_ABN(CoarseToFineImitation):
                 time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
                 self.save_attention_fig(imgs[:10], att[:10], time_stamp, name="approach_epoch_"+str(epoch+1))        
         
-        torch.save(self.approach_model.state_dict(), os.path.join(self.abn_dir, "abn_approach_model_final.pth"))
+        torch.save(self.approach_model.state_dict(), os.path.join(self.log_dir, "abn_approach_model_final.pth"))
 
         if not last_inch and self.robot is not None:
             for i in range(5):
@@ -844,7 +844,7 @@ class CFIL_ABN(CoarseToFineImitation):
                 time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
                 self.save_attention_fig(imgs[:10], att[:10], time_stamp, name="last_inch_epoch_"+str(epoch+1))  
 
-        torch.save(self.last_inch_model.state_dict(), os.path.join(self.abn_dir, "abn_last_inch_model_final.pth"))  
+        torch.save(self.last_inch_model.state_dict(), os.path.join(self.log_dir, "abn_last_inch_model_final.pth"))  
         
         if self. robot is not None:
             for i in range(5):
@@ -870,7 +870,7 @@ class CFIL_ABN(CoarseToFineImitation):
         # image = utils.hsv_extraction(image, self.robot.hsvLower, self.robot.hsvUpper, self.robot.extraction_mode)
         image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
         # utils.save_img(image, os.path.join(self.abn_dir, "test_approach_{}".format(epoch)))
-        save_approach_dir = os.path.join(self.abn_dir, "test_approach")
+        save_approach_dir = os.path.join(self.log_dir, "test_approach")
         if not os.path.exists(save_approach_dir):
             os.mkdir(save_approach_dir)
         utils.save_img(image, os.path.join(save_approach_dir, "raw_{}".format(time_stamp)))
@@ -912,7 +912,7 @@ class CFIL_ABN(CoarseToFineImitation):
                 # image = utils.hsv_extraction(image, self.robot.hsvLower, self.robot.hsvUpper, self.robot.extraction_mode)
                 image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
                 # utils.save_img(image, os.path.join(self.abn_dir, "test_last_inch_{}".format(epoch)))
-                save_last_inch_dir = os.path.join(self.abn_dir, "test_last_inch")
+                save_last_inch_dir = os.path.join(self.log_dir, "test_last_inch")
                 if not os.path.exists(save_last_inch_dir):
                     os.mkdir(save_last_inch_dir)
                 utils.save_img(image, os.path.join(save_last_inch_dir, "raw_{}".format(time_stamp)))
@@ -997,7 +997,7 @@ class CFIL_ABN(CoarseToFineImitation):
             # resize_att *= 255.
             resize_att = self.min_max(resize_att)* 255
             print(resize_att.dtype)
-            save_dir = os.path.join(self.abn_dir, name)
+            save_dir = os.path.join(self.log_dir, name)
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)
             # cv2.imwrite(os.path.join(save_dir, 'stock1.png'), v_img)
@@ -1115,7 +1115,7 @@ class CFIL_ABN(CoarseToFineImitation):
             v_img = item_img.transpose((1,2,0))* 255
             resize_att = cv2.resize(item_att[0], (in_x, in_y))
             resize_att = 255*(resize_att-all_min)/(all_max-all_min)
-            save_dir = os.path.join(self.abn_dir, "remapping_normalised", name)
+            save_dir = os.path.join(self.log_dir, "remapping_normalised", name)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
 
@@ -1129,7 +1129,7 @@ class CFIL_ABN(CoarseToFineImitation):
 
     def load_abn_model(self, path=None, last_inch=True):
         if path is None:
-            path = self.abn_dir
+            path = self.log_dir
         self.approach_model.load_state_dict(torch.load(os.path.join(path, "abn_approach_model_final.pth")))
         if last_inch:
             self.last_inch_model.load_state_dict(torch.load(os.path.join(path, "abn_last_inch_model_final.pth")))
@@ -1137,8 +1137,8 @@ class CFIL_ABN(CoarseToFineImitation):
     
     def load_for_test(self, last_inch=True):
         self.load_abn_model(last_inch=last_inch)
-        self.load_bottleneck(path=self.abn_dir)
-        self.load_trajectory(path=self.abn_dir)
+        self.load_bottleneck(path=self.log_dir)
+        self.load_trajectory(path=self.log_dir)
 
     
 if __name__ == "__main__":
