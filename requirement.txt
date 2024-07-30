@@ -3,3 +3,5 @@ torchvision
 ur_rtde
 pymodbus
 scipy
+joblib
+tqdm
