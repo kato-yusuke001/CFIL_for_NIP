@@ -5,3 +5,4 @@ pymodbus
 scipy
 joblib
 tqdm
+opencv-python
