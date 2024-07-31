@@ -13,7 +13,7 @@ class CFIL:
 
     def loadTrainedModel(self):
         import torch
-        self.approach_model.load_state_dict(torch.load(os.path.join(self.file_path, "approach_model_final.pth"),map_location=torch.device('cpu')))
+        self.approach_model.load_state_dict(torch.load(os.path.join(self.file_path, "approach_model_final.pth"), map_location=torch.device(self.device), weights_only=True))
 
 
 if __name__ == "__main__":
