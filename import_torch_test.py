@@ -1,5 +1,7 @@
-import torch
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+import torch
 
 class Test:
     def initialize(self, directory): #おまじない

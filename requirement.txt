@@ -1,7 +1,7 @@
 torch
 torchvision
 ur_rtde
-pymodbus
+pymodbus==2.5.3
 scipy
 joblib
 tqdm

@@ -1,5 +1,5 @@
 import sys
-nip_path = "C:\\Users\\4039423\\Desktop\\N.I.P._ver.7.4.0.0\\binary\\python\\CFIL_for_NIP"
+nip_path = "C:\\Users\\4039423\\Contacts\\Desktop\\nip_v8000beta\\nip\\python\\CFIL_for_NIP"
 if not nip_path in sys.path:
     sys.path.append(nip_path)
 # print(sys.path)
@@ -10,12 +10,13 @@ from pathlib import Path
 # print(help("python"))
 import os
 print(os.getcwd())
-# import torch
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import abc
 # import logging
 import time
 import numpy as np
+from datetime import datetime
 
 from rtde_control import RTDEControlInterface
 from rtde_receive import RTDEReceiveInterface
@@ -524,14 +525,14 @@ def get_variable(solution, variable_name):
 #CFIL
 #############################################################################################################################################
 #############################################################################################################################################
-# import torch
-# from CFIL_for_NIP.memory import ApproachMemory
-# from CFIL_for_NIP import utils
-# from CFIL_for_NIP.network import ABN
+import torch
+from CFIL_for_NIP.memory import ApproachMemory
+from CFIL_for_NIP import utils
+from CFIL_for_NIP.network import ABN
 memory_size = 5e4
-# device = "cuda" if torch.cuda.is_available() else "cpu"  
-device = "cpu"  
-# approach_memory = ApproachMemory(memory_size, device)
+device = "cuda" if torch.cuda.is_available() else "cpu"  
+# device = "cpu"  
+approach_memory = ApproachMemory(memory_size, device)
 
 cfil = None
 
@@ -580,7 +581,7 @@ class Convert_c_T_r(RobotClient):
 
 class CFIL:
     def __init__(self):
-        import torch
+        # import torch
         self.device = "cuda" if torch.cuda.is_available() else "cpu" 
         self.approach_model = ABN()
         self.approach_model.to(self.device)
@@ -590,11 +591,11 @@ class CFIL:
         self.image_size = 128
 
     def loadTrainedModel(self):
-        import torch
-        self.approach_model.load_state_dict(torch.load(os.path.join(self.file_path, "approach_model_final.pth"),map_location=torch.device('cpu')))
+        # import torch
+        self.approach_model.load_state_dict(torch.load(os.path.join(self.file_path, "approach_model_final.pth"),map_location=torch.device(device), weights_only=True))
 
     def approach_test_from_image(self, image):
-        import torch
+        # import torch
         image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
         # utils.save_img(image, os.path.join(self.abn_dir, "test_output"))
         image = np.transpose(image, [2, 0, 1])
@@ -629,6 +630,7 @@ class LoadTrainedModel(RobotClient):
                 print("CFIL model is not prepared")
                 return solution.judge_fail()
             cfil.loadTrainedModel()
+            print("Trained model loaded")
             return solution.judge_pass() 
         except Exception as e:
             print(type(e), e)
@@ -644,9 +646,14 @@ class Estimate(RobotClient):
                 return solution.judge_fail()
             
             image_id = solution.get_image_id("image")
-            image = solution.get_image(image_id)
+            image_tp = solution.get_image(image_id)
+            image, bit, ch, width, height = image_tp
+            image = np.array(list(image), dtype=np.uint8).reshape(height, width, ch)
+            print("image id", image_id)
+            print("image", image.shape)
             output = cfil.approach_test_from_image(image)
-            position_eb = [output[0, 0], output[0, 1], 0.01, 0, 0, output[0, 2]]
+            print(output)
+            position_eb = [output[0], output[1], 0.01, 0, 0, output[2]]
             ####必要な場合はここで座標変換####
             position_re = rtde_r.getCurrentTCPPose()
             position_rb = utils.reverse_transform(position_re, position_eb)    
@@ -668,7 +675,9 @@ class LoadImage(RobotClient):
         try:
             
             image_id = solution.get_image_id("image")
-            image = solution.get_image(image_id)
+            image_tp = solution.get_image(image_id)
+            image, bit, ch, width, height = image_tp
+            image = np.array(list(image), dtype=np.uint8).reshape(height, width, ch)
             print(image)
             return solution.judge_pass() 
         except Exception as e:
