@@ -6,3 +6,4 @@ scipy
 joblib
 tqdm
 opencv-python
+EasyPyspin
