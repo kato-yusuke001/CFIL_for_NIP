@@ -148,13 +148,11 @@ class RobotReconnect(RobotClient):
             if rtde_c is not None:
                 rtde_c.disconnect()
                 rtde_c = None
-               
-            rtde_c = RTDEControlInterface(ROBOT_IP)
-            
             if rtde_r is not None:
                 rtde_r.disconnect()
                 rtde_r = None
-            
+
+            rtde_c = RTDEControlInterface(ROBOT_IP)
             rtde_r = RTDEReceiveInterface(ROBOT_IP)
             
             print("Robot ReConnection!")

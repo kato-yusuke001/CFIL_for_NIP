@@ -1,2 +1,4 @@
-PySpin
+#PySpinhは公式ページからダウンロードしてください
+#参考：https://linx-jp.my.site.com/kb/s/article/000010455
+
 EasyPySpin
