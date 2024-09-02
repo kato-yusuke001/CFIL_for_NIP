@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 # from torch import greater
 
-class RobotiqEpick:
+class RobotiqHandE:
     """
     Communicates with the gripper directly, via socket with string commands, leveraging string names for variables.
     """
@@ -168,7 +168,7 @@ class RobotiqEpick:
     def is_active(self):
         """Returns whether the gripper is active."""
         status = self._get_var(self.STA)
-        return RobotiqEpick.GripperStatus(status) == RobotiqEpick.GripperStatus.ACTIVE
+        return RobotiqHandE.GripperStatus(status) == RobotiqHandE.GripperStatus.ACTIVE
 
     def get_min_position(self) -> int:
         """Returns the minimum on the gripper can reach (open position)."""
@@ -250,19 +250,19 @@ class RobotiqEpick:
         return press < 80.
 
 if __name__ == "__main__":
-    gripper = RobotiqEpick()
+    gripper = RobotiqHandE()
     gripper.connect("192.168.11.56", 63352)
     gripper.activate()
 
     s_time = time.time()
     e_time = time.time()-s_time
-    gripper.grip_on(pres=0, timeout=255)
+    gripper.grip(position=255,force=100)
     print("grip on")
     while e_time < 5:
         e_time = time.time()-s_time
         # print(e_time)
 
-    gripper.grip_off()
+    gripper.grip(position=0, force=100)
     print("grip off")
 
 

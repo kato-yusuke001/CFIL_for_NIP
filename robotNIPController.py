@@ -141,6 +141,25 @@ class RobotDisconnect(RobotClient):
             print(type(e), e)
             return solution.judge_fail()
         
+class RobotReconnect(RobotClient):
+    def execute(self, solution):
+        global rtde_c, rtde_r, gripper, dashboard, io
+        try:
+            if rtde_c is not None:
+                rtde_c.disconnect()
+                rtde_c = None
+                rtde_c = RTDEControlInterface(ROBOT_IP)
+            if rtde_r is not None:
+                rtde_r.disconnect()
+                rtde_r = None
+                rtde_r = RTDEReceiveInterface(ROBOT_IP)
+            
+            return solution.judge_pass()
+        
+        except Exception as e:
+            print(type(e), e)
+            return solution.judge_fail()
+        
 # ロボットの軌道とブレーキのリリースをリクエスト
 class WakeupRobot(RobotClient):
     # 実行
