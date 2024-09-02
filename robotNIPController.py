@@ -50,9 +50,9 @@ logging = setup_logger("robotNIPController", "robotNIPController")
 # ロボット設定
 print(os.getcwd())
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_kato.json"
-ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
+# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_sim.json"
-# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
+ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
 json_file = open(ROBOTPARAMS, "r")
 json_dict = json.load(json_file)
 ROBOT_IP = json_dict["robot_ip"]
@@ -306,7 +306,9 @@ class GetCurrentPose_mm(RobotClient):
         try:                       
             current_pose = rtde_r.getActualTCPPose()
             current_pose[:3] *= 1000
+            print("######################") 
             print("current pose[mm]: ", current_pose)
+            print("######################") 
             logging.info("GetCurrentPose[mm] : {}".format(current_pose))
             set_variable(solution, "current_robot_pose", current_pose)
             return solution.judge_pass()

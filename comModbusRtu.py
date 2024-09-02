@@ -2,8 +2,8 @@ import threading
 import time
 import binascii
 
-from pymodbus.client.sync import ModbusSerialClient
-# from pymodbus.client.serial import ModbusSerialClient
+#from pymodbus.client.sync import ModbusSerialClient
+from pymodbus.client.serial import ModbusSerialClient
 from math import ceil
 
 class ComModbusRtu:

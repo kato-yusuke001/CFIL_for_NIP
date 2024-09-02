@@ -8,7 +8,7 @@ def setup_logger(name, log_file, level=logging.INFO):
     formatted_time = start_japan.strftime("%Y-%m-%d_%H-%M-%S")
     
     # ログファイルの設定
-    log_filename = f"./log_{formatted_time}.log"
+    log_filename = f"./logs/log_{formatted_time}.log"
 
     # ロガーを設定
     logger = logging.getLogger(name)
