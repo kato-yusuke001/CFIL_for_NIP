@@ -53,8 +53,8 @@ print(os.getcwd())
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_kato.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_sim.json"
-# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ursim.json"
-ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
+ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ursim.json"
+# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
 json_file = open(ROBOTPARAMS, "r")
 json_dict = json.load(json_file)
 ROBOT_IP = json_dict["robot_ip"]
@@ -278,7 +278,7 @@ class GetServoStatus(RobotClient):
                         rtde_r.disconnect()
                         rtde_c.reconnect()
                         rtde_r.reconnect()
-                        return solution.judge_success()    
+                        return solution.judge_pass()    
                     else:
                         print(" Servo off")
                         return solution.judge_fail()
