@@ -53,6 +53,7 @@ print(os.getcwd())
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_kato.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_sim.json"
+# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ursim.json"
 ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
 json_file = open(ROBOTPARAMS, "r")
 json_dict = json.load(json_file)
