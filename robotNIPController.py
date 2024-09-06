@@ -1,4 +1,5 @@
 import sys
+sys.dont_write_bytecode = True # キャッシュを生成させない
 nip_path = "C:\\Users\\4039423\\Contacts\\Desktop\\nip_v8000beta\\nip\\python\\CFIL_for_NIP"
 if not nip_path in sys.path:
     sys.path.append(nip_path)
@@ -151,9 +152,13 @@ class RobotReconnect(RobotClient):
             if rtde_r is not None:
                 rtde_r.disconnect()
                 rtde_r = None
+            if io is not None:
+                io.disconnect()
+                io = None
 
             rtde_c = RTDEControlInterface(ROBOT_IP)
             rtde_r = RTDEReceiveInterface(ROBOT_IP)
+            io = RTDEIOInterface(ROBOT_IP)
             
             print("Robot ReConnection!")
             return solution.judge_pass()
@@ -179,7 +184,7 @@ class WakeupRobot(RobotClient):
                 dashboard.closeSafetyPopup()
                 
                 if(rtde_r.getSafetyMode() == 9):
-                    print(" Status Failed")
+                    print(" Status Failed", rtde_r.getSafetyMode())
                     dashboard.restartSafety()
                     time.sleep(3)
                     dashboard.powerOn()
@@ -188,29 +193,33 @@ class WakeupRobot(RobotClient):
                     dashboard.unlockProtectiveStop()
                     rtde_c.disconnect()
                     rtde_r.disconnect()
-                    gripper.disconnect()
+                    # gripper.disconnect()
                     # io.disconnect()
                     rtde_c.reconnect()
                     rtde_r.reconnect()
                     # io.reconnect()
                 elif(rtde_r.getSafetyMode() == 7):
-                    print(" Status Emergency Button still pressed")
+                    print(" Status Emergency Button still pressed", rtde_r.getSafetyMode())
                     return solution.judge_fail()
                 else:
-                    print(" Status Standby")
+                    print(" Status Standby", rtde_r.getSafetyMode())
                     dashboard.powerOn()
+                    print("  Power On")
                     dashboard.brakeRelease()
+                    print("  Brake Release")
                     dashboard.unlockProtectiveStop()
+                    print("  Unlock Protective Stop")
                     io.setConfigurableDigitalOut(0,1)
                     io.setConfigurableDigitalOut(1,1)
-                    # io.setConfigurableDigitalOut(0,0)
-                    # io.setConfigurableDigitalOut(1,0)
+                    print("  io reset")
                     rtde_c.disconnect()
                     rtde_r.disconnect()
-                    # io.disconnect()
-                    #if USE_GRIPPER: gripper.disconnect()
+                    print("   disconnect")
+                    # # io.disconnect()
+                    # #if USE_GRIPPER: gripper.disconnect()
                     rtde_c.reconnect()
                     rtde_r.reconnect()
+                    print('   Robot Reconnected')
                     # io.reconnect()
                     #if USE_GRIPPER: gripper.reconnect()
                     print("Robot status", rtde_r.getRobotStatus())
@@ -393,6 +402,7 @@ class MoveL(RobotClient):
                 return solution.judge_pass()
             else:
                 print("moveL failed")
+                logging.error("moveL failed")
                 set_variable(solution, "Server_Connect", 0)
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
         
@@ -438,6 +448,7 @@ class MoveL_mm(RobotClient):
                 return solution.judge_pass()
             else:
                 print("moveL(mm) failed")
+                logging.error("moveL(mm) failed")
                 set_variable(solution, "Server_Connect", 0)
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
         
