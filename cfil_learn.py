@@ -13,7 +13,7 @@ sys.path.append("../")
 
 from torch.utils.tensorboard import SummaryWriter
 
-from CFIL_for_NIP.network import CNN, FNN, ABN
+from CFIL_for_NIP.network import ABN128, ABN256
 from CFIL_for_NIP.memory import ApproachMemory
 
 from CFIL_for_NIP import utils
@@ -82,7 +82,10 @@ class CFILLearn():
             
         self.writer = SummaryWriter(log_dir=tensorboard_dir)
 
-        self.approach_model = ABN()
+        if self.image_size == 128:
+            self.approach_model = ABN128()
+        elif self.image_size == 256:
+            self.approach_model = ABN256()
         self.approach_model.to(self.device)
         self.reg_approach_criterion = nn.MSELoss()
         self.att_approach_criterion = nn.MSELoss()
@@ -117,11 +120,17 @@ class CFILLearn():
             
             if (epoch+1) % 2000 == 0 or epoch == 0:
                 time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
-                self.save_attention_fig(imgs[:10], att[:10], time_stamp, name="approach_epoch_"+str(epoch+1))  
+                self.save_attention_fig(imgs[:10], att[:10], time_stamp, file_path, name="approach_epoch_"+str(epoch+1))  
         
         torch.save(self.approach_model.state_dict(), os.path.join(file_path, "approach_model_final.pth"))
 
-    def save_attention_fig(self, inputs, attention, time_stamp, name=""):
+    def min_max(self, x, axis=None):
+        min = x.min(axis=axis, keepdims=True)
+        max = x.max(axis=axis, keepdims=True)
+        result = (x-min)/(max-min)
+        return result
+
+    def save_attention_fig(self, inputs, attention, time_stamp, file_path, name=""):
         c_att = attention.data.cpu()
         c_att = c_att.numpy()
         d_inputs = inputs.data.cpu()
@@ -135,8 +144,7 @@ class CFILLearn():
             resize_att = cv2.resize(item_att[0], (in_x, in_y))
             # resize_att *= 255.
             resize_att = self.min_max(resize_att)* 255
-            print(resize_att.dtype)
-            save_dir = os.path.join(self.abn_dir, name)
+            save_dir = os.path.join(file_path, name)
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)
             vis_map = cv2.cvtColor(resize_att, cv2.COLOR_GRAY2BGR)
@@ -150,7 +158,7 @@ class CFILLearn():
         
 
 if __name__ == "__main__":
-    file_path = "CFIL_for_NIP\\train_data\\20240913_153001_548"
+    file_path = "CFIL_for_NIP\\train_data\\20240913_161619_907"
  
     cl = CFILLearn()
     if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):

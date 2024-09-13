@@ -8,7 +8,7 @@ from flask import Flask, request
 import torch
 
 from memory import ApproachMemory
-from network import ABN
+from network import ABN128, ABN256
 
 from logger import setup_logger
 
@@ -69,17 +69,22 @@ class CFIL:
     def initialize(self):
         try:
             self.memory_size = 5e4
+            self.image_size = 256
 
             self.device = "cuda" if torch.cuda.is_available() else "cpu" 
-            self.approach_model = ABN()
+            if self.image_size == 128:
+                self.approach_model = ABN128()
+            elif self.image_size == 256:
+                self.approach_model = ABN256()
+                
             self.approach_model.to(self.device)
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
 
 
-            self.file_path = "CFIL_for_NIP\\train_data\\20240913_153001_548"
+            self.file_path = "CFIL_for_NIP\\train_data\\20240913_161619_907"
 
-            self.image_size = 256
+            
             return True
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
