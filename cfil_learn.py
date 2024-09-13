@@ -159,7 +159,7 @@ class CFILLearn():
         
 
 if __name__ == "__main__":
-    file_path = "CFIL_for_NIP\\train_data\\20240913_161619_907"
+    file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
  
     cl = CFILLearn()
     if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):

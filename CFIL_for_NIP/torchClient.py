@@ -138,26 +138,26 @@ class LoadTrainedModel(NIPClient):
 class Estimate(NIPClient):
     def execute(self, solution):
         def reverse_transform(re, eb):
-                re = np.array(re)
-                eb = np.array(eb)
-                
-                rot_re = Rotation.from_rotvec(np.array(re[3:6]))
-                R_re = rot_re.as_matrix()
-                T_re = np.r_[np.c_[R_re, np.array([re[:3]]).T], np.array([[0, 0, 0, 1]]) ]
-                
-                rot_eb = Rotation.from_rotvec(np.array(eb[3:6]))
-                R_eb = rot_eb.as_matrix()
-                T_eb = np.r_[np.c_[R_eb, np.array([eb[:3]]).T], np.array([[0, 0, 0, 1]]) ]
-                
-                T_rb = np.dot(T_re, T_eb)    
-                position_world = T_rb[:-1,-1]
-                R_rb = T_rb[:3,:3]
-                rot = Rotation.from_matrix(R_rb)
-                rpy_world = rot.as_rotvec()
-                
-                pose_from_world = np.r_[position_world, rpy_world]
-                
-                return pose_from_world
+            re = np.array(re)
+            eb = np.array(eb)
+            
+            rot_re = Rotation.from_rotvec(np.array(re[3:6]))
+            R_re = rot_re.as_matrix()
+            T_re = np.r_[np.c_[R_re, np.array([re[:3]]).T], np.array([[0, 0, 0, 1]]) ]
+            
+            rot_eb = Rotation.from_rotvec(np.array(eb[3:6]))
+            R_eb = rot_eb.as_matrix()
+            T_eb = np.r_[np.c_[R_eb, np.array([eb[:3]]).T], np.array([[0, 0, 0, 1]]) ]
+            
+            T_rb = np.dot(T_re, T_eb)    
+            position_world = T_rb[:-1,-1]
+            R_rb = T_rb[:3,:3]
+            rot = Rotation.from_matrix(R_rb)
+            rpy_world = rot.as_rotvec()
+            
+            pose_from_world = np.r_[position_world, rpy_world]
+            
+            return pose_from_world
         try:
             image_path = get_variable(solution, "image_path")[0]
             log_meesage("model_path: {}".format(image_path))

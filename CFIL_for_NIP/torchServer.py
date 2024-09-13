@@ -82,7 +82,7 @@ class CFIL:
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
 
 
-            self.file_path = "CFIL_for_NIP\\train_data\\20240913_161619_907"
+            self.file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
 
             
             return True
