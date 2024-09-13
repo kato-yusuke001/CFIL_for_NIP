@@ -240,7 +240,7 @@ class GetServoStatus(RobotClient):
                         rtde_r.disconnect()
                         rtde_c.reconnect()
                         rtde_r.reconnect()
-                        return solution.judge_success()    
+                        return solution.judge_pass()    
                     else:
                         print(" Servo off")
                         return solution.judge_fail()
@@ -279,7 +279,9 @@ class GetCurrentPose_mm(RobotClient):
         global rtde_r
         try:                       
             current_pose = rtde_r.getActualTCPPose()
-            current_pose[:3] *= 1000
+            current_pose[0] *= 1000
+            current_pose[1] *= 1000
+            current_pose[2] *= 1000
             print("current pose[mm]: ", current_pose)
             logging.info("GetCurrentPose[mm] : {}".format(current_pose))
             set_variable(solution, "current_robot_pose", current_pose)

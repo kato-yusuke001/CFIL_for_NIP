@@ -86,6 +86,7 @@ class CFILLearn():
             self.approach_model = ABN128()
         elif self.image_size == 256:
             self.approach_model = ABN256()
+        
         self.approach_model.to(self.device)
         self.reg_approach_criterion = nn.MSELoss()
         self.att_approach_criterion = nn.MSELoss()
@@ -121,7 +122,7 @@ class CFILLearn():
             if (epoch+1) % 2000 == 0 or epoch == 0:
                 time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
                 self.save_attention_fig(imgs[:10], att[:10], time_stamp, file_path, name="approach_epoch_"+str(epoch+1))  
-        
+       
         torch.save(self.approach_model.state_dict(), os.path.join(file_path, "approach_model_final.pth"))
 
     def min_max(self, x, axis=None):

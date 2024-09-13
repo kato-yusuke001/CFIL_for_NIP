@@ -166,7 +166,13 @@ class Estimate(NIPClient):
                 output = eval(res.text)
                 position_eb = [output[0], output[1], 0.0, 0, 0, output[2]]
                 position_re = get_variable(solution, "current_robot_pose")
+                position_re[0] *= 1000
+                position_re[1] *= 1000
+                position_re[2] *= 1000
                 position_rb = reverse_transform(position_re, position_eb) 
+                position_rb[0] /= 1000.
+                position_rb[1] /= 1000.
+                position_rb[2] /= 1000.
                 set_variable(solution, "estimated_pose", position_rb)
                 log_meesage("Estimation Completed {}".format(position_rb))
                 return solution.judge_pass()

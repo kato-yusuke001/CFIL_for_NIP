@@ -76,7 +76,7 @@ class CFIL:
                 self.approach_model = ABN128()
             elif self.image_size == 256:
                 self.approach_model = ABN256()
-                
+            print(self.approach_model.state_dict())
             self.approach_model.to(self.device)
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
