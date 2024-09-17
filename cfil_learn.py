@@ -11,6 +11,7 @@ import csv
 import sys
 sys.path.append("../")
 
+
 from torch.utils.tensorboard import SummaryWriter
 
 from CFIL_for_NIP.network import ABN128, ABN256
@@ -38,8 +39,11 @@ class CFILLearn():
             reader = csv.reader(f)
             self.data = np.array([row for row in reader])
             # print(self.data.shape)
-            self.poses = self.data[:, 0:6].astype(np.float32)
-            self.image_paths = self.data[:, 6]
+            poses = self.data[:, 0:6].astype(np.float32)
+            image_paths = self.data[:, 6]
+            angles = self.data[:, 7].astype(np.float32)
+
+        return poses, image_paths, angles
 
     def makeJobLib(self, file_path=""):
         bottleneck_csv_path = os.path.join(file_path, "bottleneck.csv") 
@@ -49,17 +53,19 @@ class CFILLearn():
 
         print(bottleneck_pose)
 
-        self.loadCSV(file_path=file_path)
-        for pose, image_path in zip(self.poses, self.image_paths):
+        poses, image_paths, angles =  self.loadCSV(file_path=file_path)
+        for pose, image_path in zip(poses, image_paths):
             print(image_path)
             # image = cv2.imread(os.path.join("CFIL_for_NIP", image_path+".jpg"))
             image = cv2.imread(image_path+".jpg")
             image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
-            # image = image.transpose(2, 0, 1)
-            # image = torch.tensor(image, dtype=torch.float32).to(self.device)
-            # image = np.array(image, dtype=np.float32)
+            
+            # pose_euler = self.rotvec2euler(pose)
+            # bottleneck_pose_euler = self.rotvec2euler(bottleneck_pose)
 
             pose_eb = utils.transform(pose, bottleneck_pose)
+            pose_eb = self.rotvec2euler(pose_eb)
+            print(pose, pose_eb)
             # pose_eb = torch.tensor(pose_eb, dtype=torch.float32).to(self.device)
 
             if self.initialize == False:
@@ -157,9 +163,20 @@ class CFILLearn():
 
             count += 1
         
+    def rotvec2euler(self, pose_rotvec):
+        pose = pose_rotvec[:3]
+        rotvec = pose_rotvec[3:]
+        
+        assert len(rotvec) == 3, "len(rotvec) must be 3" 
+
+        rot = utils.Rotation.from_rotvec(rotvec)
+        euler = rot.as_euler("XYZ")
+        pose_euler = np.r_[pose, euler]
+        return pose_euler
+
 
 if __name__ == "__main__":
-    file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
+    file_path = "CFIL_for_NIP\\train_data\\20240917_182254_514"
  
     cl = CFILLearn()
     if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):

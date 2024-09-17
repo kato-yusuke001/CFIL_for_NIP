@@ -158,21 +158,37 @@ class Estimate(NIPClient):
             pose_from_world = np.r_[position_world, rpy_world]
             
             return pose_from_world
+        
+        def euler2rotvec(pose_euler):
+            pose = pose_euler[:3]
+            euler = pose_euler[3:]
+            
+            assert len(euler) == 3, "len(quat) must be 4" 
+
+            rot = Rotation.from_euler("XYZ", euler)
+            rotvec = rot.as_rotvec()
+            pose_rotvec = np.r_[pose, rotvec]
+
+            return pose_rotvec
+
         try:
             image_path = get_variable(solution, "image_path")[0]
             log_meesage("model_path: {}".format(image_path))
             res = request_post(solution, _act="estimate", _data="image_path", _value=image_path)
             if(check_res(res)):
                 output = eval(res.text)
-                position_eb = [output[0], output[1], 0.0, 0, 0, output[2]]
+                # position_eb = [output[0], output[1], output[2], output[3], output[4], output[5]]
+                position_eb = [output[0], output[1], output[2], 0.0, 0.0, output[5]]
+                position_eb = euler2rotvec(position_eb)
                 position_re = get_variable(solution, "current_robot_pose")
-                position_re[0] *= 1000
-                position_re[1] *= 1000
-                position_re[2] *= 1000
+                # position_re[0] *= 1000
+                # position_re[1] *= 1000
+                # position_re[2] *= 1000
+                print(position_eb, position_re)
                 position_rb = reverse_transform(position_re, position_eb) 
-                position_rb[0] /= 1000.
-                position_rb[1] /= 1000.
-                position_rb[2] /= 1000.
+                # position_rb[0] /= 1000.
+                # position_rb[1] /= 1000.
+                # position_rb[2] /= 1000.
                 set_variable(solution, "estimated_pose", position_rb)
                 log_meesage("Estimation Completed {}".format(position_rb))
                 return solution.judge_pass()

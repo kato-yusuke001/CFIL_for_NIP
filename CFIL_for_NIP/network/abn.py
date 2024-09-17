@@ -32,7 +32,7 @@ class ABN128(BaseNetwork):
             nn.Linear(in_features=128*16*16, out_features=512),
             nn.Linear(in_features=512, out_features=128),
             nn.Linear(in_features=128, out_features=32),
-            nn.Linear(in_features=32, out_features=3)
+            nn.Linear(in_features=32, out_features=6)
             )
 
         self.attention = nn.Sequential(
@@ -40,13 +40,13 @@ class ABN128(BaseNetwork):
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1, padding=0),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=128, out_channels=3, kernel_size=1, padding=0),
+            nn.Conv2d(in_channels=128, out_channels=6, kernel_size=1, padding=0),
         )
         self.bn_att = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
 
         self.wgp = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=3, kernel_size=16, padding=0),
+            nn.Conv2d(in_channels=3, out_channels=6, kernel_size=16, padding=0),
             nn.Tanh()
         )
     
@@ -91,7 +91,7 @@ class ABN256(BaseNetwork):
             nn.Linear(in_features=128*32*32, out_features=512),
             nn.Linear(in_features=512, out_features=128),
             nn.Linear(in_features=128, out_features=32),
-            nn.Linear(in_features=32, out_features=3)
+            nn.Linear(in_features=32, out_features=6)
             )
 
         self.attention = nn.Sequential(
@@ -99,13 +99,13 @@ class ABN256(BaseNetwork):
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1, padding=0),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=128, out_channels=3, kernel_size=1, padding=0),
+            nn.Conv2d(in_channels=128, out_channels=6, kernel_size=1, padding=0),
         )
         self.bn_att = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
 
         self.wgp = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=3, kernel_size=32, padding=0),
+            nn.Conv2d(in_channels=6, out_channels=6, kernel_size=32, padding=0),
             nn.Tanh()
         )
     
