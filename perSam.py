@@ -139,7 +139,8 @@ class PerSAM:
     def save_randomfig_image(self, final_mask, test_image, name):
         mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
         for i in range(40):
-            cv2.rectangle(mask_colors, np.random.randint(0,256,2).tolist(), np.random.randint(0,256,2).tolist(), np.random.randint(0,255,3).tolist(), thickness=-1)
+            cv2.rectangle(mask_colors, np.random.randint(0,256,2).tolist(), np.random.randint(0,256,2).tolist(), np.random.randint(0,255,3).tolist())
+            cv2.circle(mask_colors, np.random.randint(0,256,2).tolist(), np.random.randint(1,100), np.random.randint(0,255,3).tolist())
         mask_colors[final_mask, :] = test_image[final_mask, :]
         cv2.imwrite(os.path.join(self.output_path, name), mask_colors)
         return mask_colors
