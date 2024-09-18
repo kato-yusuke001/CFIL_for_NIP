@@ -1,5 +1,8 @@
 {
-    "data_path":"CFIL_for_NIP\\train_data\\20240913_161619_907",
-    "image_size":256
+    "image_size":256,
+    "memory_size":5e4,
+    "batch_size":32,
+    "train_epochs":10000,
 
+    "train_data_file":"20240917_182254_514"
 }

@@ -7,7 +7,7 @@ import cv2
 from tqdm import tqdm
 from datetime import datetime
 import csv
-
+import json
 import sys
 sys.path.append("../")
 
@@ -20,12 +20,13 @@ from CFIL_for_NIP.memory import ApproachMemory
 from CFIL_for_NIP import utils
 
 class CFILLearn():
-    def __init__(self):
-        memory_size = 5e4
-        self.batch_size = 32
-        self.image_size = 256
+    def __init__(self, memory_size=5e4, batch_size=32, image_size=256, train_epochs=10000):
+        self.batch_size = batch_size
+        self.image_size = image_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  
         self.approach_memory = ApproachMemory(memory_size, self.device)
+
+        self.train_epochs = train_epochs
         self.csv_data = []
 
         self.initialize = False
@@ -78,7 +79,7 @@ class CFILLearn():
     def load_joblib(self, file_path=""):
         self.approach_memory.load_joblib(os.path.join(file_path,"approach_memory.joblib"))
 
-    def train(self, train_epochs=10000, file_path=""):
+    def train(self, file_path=""):
         tensorboard_dir = os.path.join(
                 file_path,
                 "cfil_{}".format(datetime.now().strftime("%Y%m%d-%H%M")),
@@ -98,7 +99,7 @@ class CFILLearn():
         self.att_approach_criterion = nn.MSELoss()
         self.approach_optimizer = optim.Adam(self.approach_model.parameters(), lr=0.0001)
         # train approach
-        for epoch in tqdm(range(train_epochs)):
+        for epoch in tqdm(range(self.train_epochs)):
             self.approach_model.train()
             sample = self.approach_memory.sample(self.batch_size)
             imgs = sample['images_seq']
@@ -177,8 +178,12 @@ class CFILLearn():
 
 if __name__ == "__main__":
     file_path = "CFIL_for_NIP\\train_data\\20240917_182254_514"
+    settings_file_path = "cfil_config.json"
+
+    json_file = open("cfil_config.json", "r")
+    json_dict = json.load(json_file)
  
-    cl = CFILLearn()
+    cl = CFILLearn(**json_dict)
     if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
         cl.makeJobLib(file_path=file_path)
 
