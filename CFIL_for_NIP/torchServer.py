@@ -82,7 +82,7 @@ class CFIL:
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
 
 
-            self.file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
+            # self.file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
 
             
             return True
@@ -106,16 +106,41 @@ class CFIL:
         image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
         image_tensor = torch.unsqueeze(image_tensor, 0)
         self.approach_model.eval()
-        time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
         with torch.no_grad():
             # appraoch
             output_tensor, _, att = self.approach_model(image_tensor)
             output = output_tensor.to('cpu').detach().numpy().copy()
+            self.save_attention_fig(image_tensor, att, image_path)
 
         return output[0].tolist()
     
-    
 
+    def save_attention_fig(self, inputs, attention, image_path):
+        def min_max(x, axis=None):
+            min = x.min(axis=axis, keepdims=True)
+            max = x.max(axis=axis, keepdims=True)
+            result = (x-min)/(max-min)
+            return result
+        try:
+            c_att = attention.data.cpu()
+            c_att = c_att.numpy()
+            d_inputs = inputs.data.cpu()
+            d_inputs = d_inputs.numpy()
+            in_b, in_c, in_y, in_x = inputs.shape
+            print(d_inputs, c_att)
+            for item_img, item_att in zip(d_inputs, c_att):
+                v_img = item_img.transpose((1,2,0))* 255
+                resize_att = cv2.resize(item_att[0], (in_x, in_y))
+                resize_att = min_max(resize_att)* 255
+                vis_map = cv2.cvtColor(resize_att, cv2.COLOR_GRAY2BGR)
+                jet_map = cv2.applyColorMap(vis_map.astype(np.uint8), cv2.COLORMAP_JET)
+                v_img = v_img.astype(np.uint8)
+                jet_map = cv2.addWeighted(v_img, 0.5, jet_map, 0.5, 0)
+                cv2.imwrite(image_path+"_attntion.jpg", cv2.vconcat([v_img, jet_map]))
+
+        except Exception as e:
+            log_error("{} : {}".format(type(e), e))
+            return False
 
 if __name__ == "__main__":
     cfil_agent = CFIL()

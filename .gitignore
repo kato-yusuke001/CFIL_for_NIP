@@ -2,7 +2,7 @@
 *.joblib
 *.csv
 *.log
-*.pyh
+*.pth
 __pycache__
 CFIL_for_NIP/train_data
 image.jpg

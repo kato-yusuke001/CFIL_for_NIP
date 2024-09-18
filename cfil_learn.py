@@ -20,11 +20,18 @@ from CFIL_for_NIP.memory import ApproachMemory
 from CFIL_for_NIP import utils
 
 class CFILLearn():
-    def __init__(self, memory_size=5e4, batch_size=32, image_size=256, train_epochs=10000):
+    def __init__(self, 
+                 memory_size=5e4, 
+                 batch_size=32, 
+                 image_size=256, 
+                 train_epochs=10000,
+                 sam_flag=False):
         self.batch_size = batch_size
         self.image_size = image_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  
         self.approach_memory = ApproachMemory(memory_size, self.device)
+
+        self.sam_flag = sam_flag
 
         self.train_epochs = train_epochs
         self.csv_data = []
@@ -54,20 +61,29 @@ class CFILLearn():
 
         print(bottleneck_pose)
 
+        if self.sam_flag:
+            from perSam import PerSAM
+            per_sam = PerSAM(annotation_path="sam\\ref", 
+                        output_path=os.path.join(file_path, "masked_images"))
+            per_sam.loadSAM()
+
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
-        for pose, image_path in zip(poses, image_paths):
-            print(image_path)
-            # image = cv2.imread(os.path.join("CFIL_for_NIP", image_path+".jpg"))
+        for pose, image_path in tqdm(zip(poses, image_paths)):
+            # print(image_path)
+
             image = cv2.imread(image_path+".jpg")
             image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
-            
-            # pose_euler = self.rotvec2euler(pose)
-            # bottleneck_pose_euler = self.rotvec2euler(bottleneck_pose)
+            # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if self.sam_flag:
+                masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM(image)
+                # image = per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+                # image = per_sam.save_randomback_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+                image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
 
+            
             pose_eb = utils.transform(pose, bottleneck_pose)
             pose_eb = self.rotvec2euler(pose_eb)
-            print(pose, pose_eb)
-            # pose_eb = torch.tensor(pose_eb, dtype=torch.float32).to(self.device)
+            # print(pose, pose_eb)
 
             if self.initialize == False:
                 self.approach_memory.initial_settings(image, pose)
@@ -177,13 +193,18 @@ class CFILLearn():
 
 
 if __name__ == "__main__":
-    file_path = "CFIL_for_NIP\\train_data\\20240917_182254_514"
     settings_file_path = "cfil_config.json"
 
-    json_file = open("cfil_config.json", "r")
+    json_file = open(settings_file_path, "r")
     json_dict = json.load(json_file)
+    file_path = os.path.join("CFIL_for_NIP\\train_data", json_dict["train_data_file"])
  
-    cl = CFILLearn(**json_dict)
+    cl = CFILLearn(memory_size=json_dict["memory_size"], 
+                   batch_size=json_dict["batch_size"], 
+                   image_size=json_dict["image_size"], 
+                   train_epochs=json_dict["train_epochs"],
+                   sam_flag=json_dict["sam_flag"])
+    
     if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
         cl.makeJobLib(file_path=file_path)
 
