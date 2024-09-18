@@ -4,5 +4,7 @@
     "batch_size":32,
     "train_epochs":10000,
 
-    "train_data_file":"20240917_182254_514"
+    "train_data_file":"20240918_164823_147",
+
+    "sam_flag":true
 }

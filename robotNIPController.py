@@ -487,6 +487,37 @@ class CheckPressure(RobotClient):
         else:
             return solution.judge_pass()
 
+class Rotate(RobotClient):
+    def execute(self, solution):
+        global rtde_r
+        try:
+            base_pose = get_variable(solution, "robot_initial_pose")
+            angles = get_variable(solution, "rotate_angles")
+            angles = [np.deg2rad(angle) for angle in angles]
+            goal_pose = rotate(base_pose, angles)
+            set_variable(solution, "target_rotVec", goal_pose[3:])
+            return solution.judge_pass()
+        except Exception as e:
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
+class LoadJson(RobotClient):
+    def execute(self, solution):
+        try:
+            json_file = get_variable(solution, "json_file")
+            json_file = json_file[0]
+            print(json_file)
+            json_dict = json.load(open(json_file, "r"))
+            print(json_dict)
+            set_variable_string(solution, "train_data_file", json_dict["train_data_file"])
+            return solution.judge_pass()
+        except Exception as e:
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
+
 def makeDict(value):
     if isinstance(value, list):
         return dict(zip(np.arange(1,len(value)+1), value))
@@ -515,6 +546,15 @@ def get_variable(solution, variable_name):
     val = list(solution.get_variable(variable_id).values())
     return val 
 
+def set_variable_string(solution, variable_string_name, value_string):
+    variable_id = solution.get_variable_id(variable_string_name)
+    if variable_id == 0:
+        print("Variable named {} did not found".format(variable_string_name))
+        return solution.judge_fail()
+    solution.set_variable_string(variable_id, value_string)
+    return solution
+
+
 def rotate(pose, angles, order="xyz"):
     rot = Rotation.from_euler(order, angles)
     pose_rotvec = Rotation.from_rotvec(pose[3:])
@@ -526,20 +566,6 @@ def rotate(pose, angles, order="xyz"):
 
     return result_pose
 
-class Rotate(RobotClient):
-    def execute(self, solution):
-        global rtde_r
-        try:
-            base_pose = get_variable(solution, "robot_initial_pose")
-            angles = get_variable(solution, "rotate_angles")
-            angles = [np.deg2rad(angle) for angle in angles]
-            goal_pose = rotate(base_pose, angles)
-            set_variable(solution, "target_rotVec", goal_pose[3:])
-            return solution.judge_pass()
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
 
 # class Convert_c_T_r(RobotClient):
 #     def execute(self, solution):
