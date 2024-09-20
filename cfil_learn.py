@@ -25,13 +25,13 @@ class CFILLearn():
                  batch_size=32, 
                  image_size=256, 
                  train_epochs=10000,
-                 sam_flag=False):
+                 use_sam=False):
         self.batch_size = batch_size
         self.image_size = image_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  
         self.approach_memory = ApproachMemory(memory_size, self.device)
 
-        self.use_sam = sam_flag
+        self.use_sam = use_sam
 
         self.train_epochs = train_epochs
         self.csv_data = []
@@ -115,8 +115,8 @@ class CFILLearn():
         self.att_approach_criterion = nn.MSELoss()
         self.approach_optimizer = optim.Adam(self.approach_model.parameters(), lr=0.0001)
         # train approach
+        self.approach_model.train()
         for epoch in tqdm(range(self.train_epochs)):
-            self.approach_model.train()
             sample = self.approach_memory.sample(self.batch_size)
             imgs = sample['images_seq']
             positions_eb = sample['positions_seq']
@@ -187,7 +187,7 @@ class CFILLearn():
         assert len(rotvec) == 3, "len(rotvec) must be 3" 
 
         rot = utils.Rotation.from_rotvec(rotvec)
-        euler = rot.as_euler("XYZ")
+        euler = rot.as_euler("xyz")
         pose_euler = np.r_[pose, euler]
         return pose_euler
 
@@ -203,7 +203,7 @@ if __name__ == "__main__":
                    batch_size=json_dict["batch_size"], 
                    image_size=json_dict["image_size"], 
                    train_epochs=json_dict["train_epochs"],
-                   sam_flag=json_dict["sam_flag"])
+                   use_sam=json_dict["use_sam"])
     
     if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
         cl.makeJobLib(file_path=file_path)
