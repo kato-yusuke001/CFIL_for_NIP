@@ -163,9 +163,9 @@ class Estimate(NIPClient):
             pose = pose_euler[:3]
             euler = pose_euler[3:]
             
-            assert len(euler) == 3, "len(quat) must be 4" 
+            assert len(euler) == 3, "len(euler) must be 3" 
 
-            rot = Rotation.from_euler("XYZ", euler)
+            rot = Rotation.from_euler("xyz", euler)
             rotvec = rot.as_rotvec()
             pose_rotvec = np.r_[pose, rotvec]
 
