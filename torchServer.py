@@ -7,8 +7,8 @@ from datetime import datetime
 from flask import Flask, request
 import torch
 
-from memory import ApproachMemory
-from network import ABN128, ABN256
+from CFIL_for_NIP.memory import ApproachMemory
+from CFIL_for_NIP.network import ABN128, ABN256
 
 from logger import setup_logger
 
@@ -48,10 +48,22 @@ def loadTrainedModel():
     model_path = request.form["model_path"]
     ret = cfil_agent.loadTrainedModel(model_path)
     if(ret):
-        log_meesage("Trained Model Loaded")
+        log_meesage("Trained CFIL Model Loaded")
         return "Success"
     else:
-        log_error("Trained Model Loading Failed")
+        log_error("Trained CFIL Model Loading Failed")
+        return "False"
+
+@app.route("/loadSAMModel", methods=["POST"])
+def loadSAMModel():
+    global cfil_agent
+    image_save_path = request.form["image_save_path"]
+    ret = cfil_agent.loadSAMModel(image_save_path)
+    if(ret):
+        log_meesage("SAM Model Loaded")
+        return "Success"
+    else:
+        log_error("SAM Model Loading Failed")
         return "False"
     
 @app.route("/estimate", methods=["POST"])
@@ -81,6 +93,7 @@ class CFIL:
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
 
+            self.use_sam = False
 
             # self.file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
 
@@ -97,11 +110,26 @@ class CFIL:
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
+        
+    def loadSAMModel(self,image_path):
+        try:
+            from perSam import PerSAM
+            self.per_sam = PerSAM(annotation_path="sam\\ref", 
+                        output_path=os.path.join(image_path, "masked_images"))
+            self.per_sam.loadSAM()
+            self.use_sam = True
+            return True
+        except Exception as e:
+            log_error("{} : {}".format(type(e), e))
+            return False
 
     def estimate_from_image(self, image_path):
         image = cv2.imread(image_path+".jpg")
         image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
-        # utils.save_img(image, os.path.join(self.abn_dir, "test_output"))
+        if self.use_sam:
+            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image)
+            image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+
         image = np.transpose(image, [2, 0, 1])
         image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
         image_tensor = torch.unsqueeze(image_tensor, 0)

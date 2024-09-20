@@ -133,6 +133,24 @@ class LoadTrainedModel(NIPClient):
         except Exception as e:
             log_error("Error in loadTrainedModel: {}".format(e))
             return solution.judge_fail()
+        
+# SAMモデルロードリクエスト
+class LoadSAMModel(NIPClient):
+    def execute(self, solution):
+        try:
+            image_save_path = get_variable(solution, "image_path")[0]
+            log_meesage("sam image_save_path: {}".format(image_save_path))
+            res = request_post(solution, _act="loadSAMModel", _data="image_save_path", _value=image_save_path)
+            if(check_res(res)):
+                log_meesage("Trained Model Loaded")
+                return solution.judge_pass()
+            else:
+                log_error("Trained Model Loading Failed")
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in loadTrainedModel: {}".format(e))
+            return solution.judge_fail()
 
 # CFIL推論実行リクエスト
 class Estimate(NIPClient):

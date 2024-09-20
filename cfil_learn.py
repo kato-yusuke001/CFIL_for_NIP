@@ -31,7 +31,7 @@ class CFILLearn():
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  
         self.approach_memory = ApproachMemory(memory_size, self.device)
 
-        self.sam_flag = sam_flag
+        self.use_sam = sam_flag
 
         self.train_epochs = train_epochs
         self.csv_data = []
@@ -61,7 +61,7 @@ class CFILLearn():
 
         print(bottleneck_pose)
 
-        if self.sam_flag:
+        if self.use_sam:
             from perSam import PerSAM
             per_sam = PerSAM(annotation_path="sam\\ref", 
                         output_path=os.path.join(file_path, "masked_images"))
@@ -74,7 +74,7 @@ class CFILLearn():
             image = cv2.imread(image_path+".jpg")
             image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            if self.sam_flag:
+            if self.use_sam:
                 masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM(image)
                 # image = per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
                 # image = per_sam.save_randomback_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
