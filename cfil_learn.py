@@ -57,13 +57,17 @@ class CFILLearn():
         bottleneck_csv_path = os.path.join(file_path, "bottleneck.csv") 
         with open(bottleneck_csv_path) as f:
             reader = csv.reader(f)
-            bottleneck_pose = np.array([row for row in reader])[0,:-1].astype(np.float32)
+            # bottleneck_pose = np.array([row for row in reader])[0,:-1].astype(np.float32)
+            # print([row for row in reader][1][:6])
+            bottleneck_pose = np.array([row for row in reader][1][:6]).astype(np.float32)
 
         print(bottleneck_pose)
 
         if self.use_sam:
             from perSam import PerSAM
-            per_sam = PerSAM(annotation_path="sam\\ref", 
+            per_sam = PerSAM(
+                        # annotation_path="sam\\ref", 
+                        annotation_path=os.path.join(file_path, "ref"), 
                         output_path=os.path.join(file_path, "masked_images"))
             per_sam.loadSAM()
 
@@ -76,9 +80,9 @@ class CFILLearn():
             # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if self.use_sam:
                 masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM(image)
-                # image = per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+                image = per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
                 # image = per_sam.save_randomback_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
-                image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+                # image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
 
             
             pose_eb = utils.transform(pose, bottleneck_pose)

@@ -47,7 +47,27 @@ def request_post(solution, _act="", _data="", _value=None):
     except Exception as e: #接続エラー時。（サーバー側との接続が出来ないときなど）
         log_error("Error in request_post: {}".format(e))
         return solution.judge_fail()
+
+def request_posts(solution, _act="", _data="", _value=None):
+    act = _act
+    try:
+        if(_value is not None):
+            prompt = {}
+            for d, v in zip(_data, _value):
+                prompt[d] = str(v)
+            # prompt = {_data:str(_value)}
+        else:
+            prompt = {"":None,}
+        print(act, prompt)
+        res = requests.post(url=flask_root+act, data=prompt, proxies={"http":PROXY})
+        log_meesage("Action Request: {} & {}, Response: {}".format(act, prompt, res))
+        return res
     
+    except Exception as e: #接続エラー時。（サーバー側との接続が出来ないときなど）
+        log_error("Error in request_post: {}".format(e))
+        return solution.judge_fail()
+    
+
 def check_res(res):
     if(res.status_code==200): # サーバーとの通信はできてる
         log_meesage("{},  {}".format(res.status_code, res.text))
@@ -139,13 +159,14 @@ class LoadSAMModel(NIPClient):
     def execute(self, solution):
         try:
             image_save_path = get_variable(solution, "image_path")[0]
+            model_path = get_variable(solution, "model_path")[0]
             log_meesage("sam image_save_path: {}".format(image_save_path))
-            res = request_post(solution, _act="loadSAMModel", _data="image_save_path", _value=image_save_path)
+            res = request_posts(solution, _act="loadSAMModel", _data=["image_save_path", "model_path"], _value=[image_save_path,model_path])
             if(check_res(res)):
-                log_meesage("Trained Model Loaded")
+                log_meesage("SAM Model Loaded")
                 return solution.judge_pass()
             else:
-                log_error("Trained Model Loading Failed")
+                log_error("SAM Model Loading Failed")
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
 
         except Exception as e:

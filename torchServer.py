@@ -58,7 +58,8 @@ def loadTrainedModel():
 def loadSAMModel():
     global cfil_agent
     image_save_path = request.form["image_save_path"]
-    ret = cfil_agent.loadSAMModel(image_save_path)
+    model_path = request.form["model_path"]
+    ret = cfil_agent.loadSAMModel(image_save_path, model_path)
     if(ret):
         log_meesage("SAM Model Loaded")
         return "Success"
@@ -88,7 +89,7 @@ class CFIL:
                 self.approach_model = ABN128()
             elif self.image_size == 256:
                 self.approach_model = ABN256()
-            print(self.approach_model.state_dict())
+            # print(self.approach_model.state_dict())
             self.approach_model.to(self.device)
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
@@ -111,10 +112,13 @@ class CFIL:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    def loadSAMModel(self,image_path):
+    def loadSAMModel(self,image_path, model_path):
         try:
             from perSam import PerSAM
-            self.per_sam = PerSAM(annotation_path="sam\\ref", 
+            print(image_path, image_path)
+            self.per_sam = PerSAM(
+                        # annotation_path="sam\\ref", 
+                        annotation_path=os.path.join(model_path, "ref"), 
                         output_path=os.path.join(image_path, "masked_images"))
             self.per_sam.loadSAM()
             self.use_sam = True
@@ -155,7 +159,7 @@ class CFIL:
             d_inputs = inputs.data.cpu()
             d_inputs = d_inputs.numpy()
             in_b, in_c, in_y, in_x = inputs.shape
-            print(d_inputs, c_att)
+            # print(d_inputs, c_att)
             for item_img, item_att in zip(d_inputs, c_att):
                 v_img = item_img.transpose((1,2,0))* 255
                 resize_att = cv2.resize(item_att[0], (in_x, in_y))

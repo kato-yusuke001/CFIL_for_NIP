@@ -48,9 +48,9 @@ sam.to(device=device)
 predictor = SamPredictor(sam)
 
 #セグメンテーションしたい画像を読み込み
-image = cv2.imread('CFIL_for_NIP\\train_data\\bottoleneck.jpg')
+image = cv2.imread('CFIL_for_NIP\\train_data\\20240925_170444_287\\initial_image.jpg')
 image = cv2.resize(image, (256,256), interpolation=cv2.INTER_CUBIC)
-cv2.imwrite("sam\\original.jpg", image)
+cv2.imwrite("CFIL_for_NIP\\train_data\\20240925_170444_287\\original.jpg", image)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 predictor.set_image(image) # 画像をembeddingにする
 
