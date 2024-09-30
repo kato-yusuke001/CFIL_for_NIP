@@ -16,7 +16,7 @@ from logger import setup_logger
 cfil_agent = None
 
 # Flask設定
-HOST = "192.168.11.55"
+HOST = "192.168.11.54"
 PORT = 5000
 app = Flask(__name__)
 
@@ -72,6 +72,27 @@ def Estimate():
     global cfil_agent
     image_path = request.form["image_path"]
     ret = str(cfil_agent.estimate_from_image(image_path))
+    log_meesage("Estimation Completed {}".format(ret))
+    return ret
+
+@app.route("/loadSAM_f_Model", methods=["POST"])
+def loadSAM_f_Model():
+    global cfil_agent
+    image_save_path = request.form["image_save_path"]
+    model_path = request.form["model_path"]
+    ret = cfil_agent.loadSAM_f_Model(image_save_path, model_path)
+    if(ret):
+        log_meesage("SAM_f Model Loaded")
+        return "Success"
+    else:
+        log_error("SAM_f Model Loading Failed")
+        return "False"
+    
+@app.route("/estimate_f", methods=["POST"])
+def Estimate_f():
+    global cfil_agent
+    image_path = request.form["image_path"]
+    ret = str(cfil_agent.estimate_from_image_f(image_path))
     log_meesage("Estimation Completed {}".format(ret))
     return ret
     
@@ -133,6 +154,41 @@ class CFIL:
         if self.use_sam:
             masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image)
             image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+
+        image = np.transpose(image, [2, 0, 1])
+        image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
+        image_tensor = torch.unsqueeze(image_tensor, 0)
+        self.approach_model.eval()
+        with torch.no_grad():
+            # appraoch
+            output_tensor, _, att = self.approach_model(image_tensor)
+            output = output_tensor.to('cpu').detach().numpy().copy()
+            self.save_attention_fig(image_tensor, att, image_path)
+
+        return output[0].tolist()
+    
+    def loadSAM_f_Model(self,image_path, model_path):
+        try:
+            from perSam import PerSAM
+            print(image_path, image_path)
+            self.per_sam = PerSAM(
+                        # annotation_path="sam\\ref", 
+                        annotation_path=os.path.join(model_path, "ref"), 
+                        output_path=os.path.join(image_path, "masked_images"))
+            self.per_sam.loadSAM_f()
+            self.use_sam = True
+            return True
+        except Exception as e:
+            log_error("{} : {}".format(type(e), e))
+            return False
+        
+    def estimate_from_image_f(self, image_path):
+        image = cv2.imread(image_path+".jpg")
+        image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+        if self.use_sam:
+            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM_f(image)
+            image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+            self.per_sam.save_heatmap(image_path.split("\\")[-1]+"_similarity.jpg")
 
         image = np.transpose(image, [2, 0, 1])
         image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.

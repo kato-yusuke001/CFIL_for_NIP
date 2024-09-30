@@ -25,13 +25,16 @@ class CFILLearn():
                  batch_size=32, 
                  image_size=256, 
                  train_epochs=10000,
-                 use_sam=False):
+                 use_sam=False,
+                 sam_f=False):
         self.batch_size = batch_size
         self.image_size = image_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  
         self.approach_memory = ApproachMemory(memory_size, self.device)
 
         self.use_sam = use_sam
+
+        self.sam_f = sam_f
 
         self.train_epochs = train_epochs
         self.csv_data = []
@@ -69,7 +72,10 @@ class CFILLearn():
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(file_path, "ref"), 
                         output_path=os.path.join(file_path, "masked_images"))
-            per_sam.loadSAM()
+            if self.sam_f:
+                per_sam.loadSAM_f()
+            else:
+                per_sam.loadSAM()
 
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
         for pose, image_path in tqdm(zip(poses, image_paths)):
@@ -79,7 +85,10 @@ class CFILLearn():
             image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if self.use_sam:
-                masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM(image)
+                if self.sam_f:
+                    masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM_f(image)
+                else:
+                    masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM(image)
                 image = per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
                 # image = per_sam.save_randomback_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
                 # image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
@@ -207,7 +216,8 @@ if __name__ == "__main__":
                    batch_size=json_dict["batch_size"], 
                    image_size=json_dict["image_size"], 
                    train_epochs=json_dict["train_epochs"],
-                   use_sam=json_dict["use_sam"])
+                   use_sam=json_dict["use_sam"],
+                   sam_f=json_dict["sam_f"])
     
     if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
         cl.makeJobLib(file_path=file_path)

@@ -21,7 +21,7 @@ def log_error(message):
     logging.error(message)
 
 
-HOST = "192.168.11.55"
+HOST = "192.168.11.54"
 PORT = 5000
 
 PROXY = ""
@@ -214,6 +214,92 @@ class Estimate(NIPClient):
             image_path = get_variable(solution, "image_path")[0]
             log_meesage("model_path: {}".format(image_path))
             res = request_post(solution, _act="estimate", _data="image_path", _value=image_path)
+            if(check_res(res)):
+                output = eval(res.text)
+                # position_eb = [output[0], output[1], output[2], output[3], output[4], output[5]]
+                position_eb = [output[0], output[1], output[2], 0.0, 0.0, output[5]]
+                position_eb = euler2rotvec(position_eb)
+                position_re = get_variable(solution, "current_robot_pose")
+                # position_re[0] *= 1000
+                # position_re[1] *= 1000
+                # position_re[2] *= 1000
+                print(position_eb, position_re)
+                position_rb = reverse_transform(position_re, position_eb) 
+                # position_rb[0] /= 1000.
+                # position_rb[1] /= 1000.
+                # position_rb[2] /= 1000.
+                set_variable(solution, "estimated_pose", position_rb)
+                log_meesage("Estimation Completed {}".format(position_rb))
+                return solution.judge_pass()
+            else:
+                log_error("Estimation Failed")
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in Estimate: {}".format(e))
+            return solution.judge_fail()
+        
+
+# SAMモデルロードリクエスト
+class LoadSAM_f_Model(NIPClient):
+    def execute(self, solution):
+        try:
+            image_save_path = get_variable(solution, "save_masked_image_path")[0]
+            model_path = get_variable(solution, "model_path")[0]
+            log_meesage("sam image_save_path: {}".format(image_save_path))
+            res = request_posts(solution, _act="loadSAM_f_Model", _data=["image_save_path", "model_path"], _value=[image_save_path,model_path])
+            if(check_res(res)):
+                log_meesage("SAM_f Model Loaded")
+                return solution.judge_pass()
+            else:
+                log_error("SAM_f Model Loading Failed")
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in loadTrainedModel: {}".format(e))
+            return solution.judge_fail()
+
+# CFIL推論実行リクエスト
+class Estimate_f(NIPClient):
+    def execute(self, solution):
+        def reverse_transform(re, eb):
+            re = np.array(re)
+            eb = np.array(eb)
+            
+            rot_re = Rotation.from_rotvec(np.array(re[3:6]))
+            R_re = rot_re.as_matrix()
+            T_re = np.r_[np.c_[R_re, np.array([re[:3]]).T], np.array([[0, 0, 0, 1]]) ]
+            
+            rot_eb = Rotation.from_rotvec(np.array(eb[3:6]))
+            R_eb = rot_eb.as_matrix()
+            T_eb = np.r_[np.c_[R_eb, np.array([eb[:3]]).T], np.array([[0, 0, 0, 1]]) ]
+            
+            T_rb = np.dot(T_re, T_eb)    
+            position_world = T_rb[:-1,-1]
+            R_rb = T_rb[:3,:3]
+            rot = Rotation.from_matrix(R_rb)
+            rpy_world = rot.as_rotvec()
+            
+            pose_from_world = np.r_[position_world, rpy_world]
+            
+            return pose_from_world
+        
+        def euler2rotvec(pose_euler):
+            pose = pose_euler[:3]
+            euler = pose_euler[3:]
+            
+            assert len(euler) == 3, "len(euler) must be 3" 
+
+            rot = Rotation.from_euler("xyz", euler)
+            rotvec = rot.as_rotvec()
+            pose_rotvec = np.r_[pose, rotvec]
+
+            return pose_rotvec
+
+        try:
+            image_path = get_variable(solution, "image_path")[0]
+            log_meesage("model_path: {}".format(image_path))
+            res = request_post(solution, _act="estimate_f", _data="image_path", _value=image_path)
             if(check_res(res)):
                 output = eval(res.text)
                 # position_eb = [output[0], output[1], output[2], output[3], output[4], output[5]]
