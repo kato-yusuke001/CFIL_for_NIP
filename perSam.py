@@ -127,10 +127,11 @@ class PerSAM:
 
         return masks, best_idx, topk_xy, topk_label       
     
-    def save_masked_image(self, final_mask, test_image, name):
+    def save_masked_image(self, final_mask, test_image, name, output=True):
         mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
         mask_colors[final_mask, :] = test_image[final_mask, :]
-        cv2.imwrite(os.path.join(self.output_path, name), mask_colors)
+        if output:
+            cv2.imwrite(os.path.join(self.output_path, name), mask_colors)
         return mask_colors
     
     def save_randomback_image(self, final_mask, test_image, name):
@@ -190,8 +191,10 @@ class PerSAM:
 
         # Load images and masks
         ref_image = cv2.imread(ref_image_path)
+        ref_image = cv2.resize(ref_image,None,fx=0.1,fy=0.1)
         ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
         ref_mask = cv2.imread(ref_mask_path)
+        ref_mask = cv2.resize(ref_mask,None,fx=0.1,fy=0.1)
         ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
         gt_mask = torch.tensor(ref_mask)[:, :, 0] > 0 
         gt_mask = gt_mask.float().unsqueeze(0).flatten(1).cuda()
@@ -337,7 +340,7 @@ class PerSAM:
 
         return loss.mean(1).sum() / num_masks
     
-    def executePerSAM_f(self, test_image):             
+    def executePerSAM_f(self, test_image, show_heatmap=False):             
         # Image feature encoding
         self.predictor.set_image(test_image)
         test_feat = self.predictor.features.squeeze()
@@ -353,7 +356,8 @@ class PerSAM:
                         input_size=self.predictor.input_size,
                         original_size=self.predictor.original_size).squeeze()
         
-        self.heatmap = sim_to_heatmap(sim)
+        if show_heatmap:
+            self.heatmap = sim_to_heatmap(sim)
         
         # Positive-negative location prior
         topk_xy, topk_label = self.point_selection(sim, topk=1)
@@ -430,7 +434,56 @@ class Mask_Weights(nn.Module):
         super().__init__()
         self.weights = nn.Parameter(torch.ones(2, 1, requires_grad=True) / 3)
 
+def camera_demo():
+    import cv2
+    perSam = PerSAM(annotation_path="sam\\ref2")
+    perSam.loadSAM_f()
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920) # カメラ画像の横幅を設定
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080) # カメラ画像の縦幅を設定
+
+    crop_x = [200, 1220]
+    crop_y = [150, 950]
+    # crop_x = [400, 600]
+    # crop_y = [200, 400]
+
+    #OpenCVのタイマーの準備
+    timer = cv2.TickMeter()
+    timer.start()
+
+    #各変数の初期値設定
+    count = 0
+    max_count =30
+    fps = 0
+
+
+    while True:
+        ret, frame = cap.read()
+        # frame = cv2.resize(frame, (1000, 600))
+        frame = frame[crop_y[0]:crop_y[1], crop_x[0]:crop_x[1]]
+        masks, best_idx, topk_xy, topk_label = perSam.executePerSAM_f(frame, show_heatmap=False)
+        frame = perSam.save_masked_image(masks[best_idx], frame, "test.jpg", output=False)
+        # perSam.save_heatmap("similarity.jpg")
+        if count == max_count:
+            timer.stop()
+            fps = max_count / timer.getTimeSec()
+            print("FPS(Actual):" , '{:11.02f}'.format(fps))        
+            #リセットと再スタート
+            timer.reset()
+            count = 0
+            timer.start()
+        count += 1
+        cv2.imshow("Web Camera movie", frame)
+        
+        i = cv2.waitKey(1)
+        if i == 27 or i == 13: # presss "ESC or Enter" to exit
+            cv2.imwrite("test.jpg", frame)
+            break
+
+
 if __name__ == "__main__":
-    perSam = PerSAM()
-    perSam.loadSAM()
-    perSam.testPerSAM()
+    # perSam = PerSAM()
+    # perSam.loadSAM()
+    # perSam.testPerSAM()
+
+    camera_demo()
