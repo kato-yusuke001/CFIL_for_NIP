@@ -356,6 +356,7 @@ class PerSAM:
                         input_size=self.predictor.input_size,
                         original_size=self.predictor.original_size).squeeze()
         
+        self.heatmap=None
         if show_heatmap:
             self.heatmap = sim_to_heatmap(sim)
         
@@ -415,7 +416,8 @@ class PerSAM:
         return masks, best_idx, topk_xy, topk_label
     
     def save_heatmap(self, name):
-        cv2.imwrite(os.path.join(self.output_path, name), cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))
+        if self.heatmap is not None:
+            cv2.imwrite(os.path.join(self.output_path, name), cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))
     
 def sim_to_heatmap(sim):
     if torch.is_tensor(sim):

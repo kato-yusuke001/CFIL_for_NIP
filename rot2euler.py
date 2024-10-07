@@ -10,7 +10,7 @@ def rot2euler(rot):
     return R.as_euler('xyz', degrees=True)
 
 def euler2rot(euler):
-    R = Rotation.from_euler('XYZ', euler, degrees=True)
+    R = Rotation.from_euler('xyz', euler, degrees=True)
     return R.as_rotvec()
 
 def read_csv(file_path):
