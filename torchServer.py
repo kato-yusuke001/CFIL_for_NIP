@@ -9,11 +9,13 @@ import torch
 
 from CFIL_for_NIP.memory import ApproachMemory
 from CFIL_for_NIP.network import ABN128, ABN256
+from scipy.ndimage import maximum_filter
 
 from logger import setup_logger
 
 
 cfil_agent = None
+position_detector = None
 
 # Flask設定
 HOST = "192.168.11.54"
@@ -94,6 +96,13 @@ def Estimate_f():
     image_path = request.form["image_path"]
     ret = str(cfil_agent.estimate_from_image_f(image_path))
     log_meesage("Estimation Completed {}".format(ret))
+    return ret
+
+@app.route("/detectPosition", methods=["POST"])
+def detectPosition():
+    global position_detector
+    ret = str(position_detector.detectPositions())
+    log_meesage("Positions Detected {}".format(ret))
     return ret
     
 class CFIL:
@@ -229,8 +238,55 @@ class CFIL:
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
+    
+    
+class PositionDetector:
+    def __init__(self):
+        pass
+
+    def initialize(self, ref_model_path, save_path):
+        from perSam import PerSAM
+        self.per_sam = PerSAM(
+                    # annotation_path="sam\\ref", 
+                    annotation_path=os.path.join(ref_model_path, "ref"), 
+                    output_path=os.path.join(save_path, "masked_images"))
+        
+        self.per_sam.loadSAM()
+
+        self.cap = None
+        try:
+            self.cap = cv2.VideoCapture(0)
+            self.cap = cv2.VideoCapture(0)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920) # カメラ画像の横幅を設定
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080) # カメラ画像の縦幅を設定
+
+            self.crop_x = [200, 1220]
+            self.crop_y = [150, 950]
+        except Exception as e:
+            log_error("{} : {}".format(type(e), e))
+            return False
+
+    def detectPositions(self):
+        ret, frame = self.cap.read()
+        image = frame[self.crop_y[0]:self.crop_y[1], self.crop_x[0]:self.crop_x[1]]
+        sim = self.per_sam.getSimirality(image)
+        sim_np = sim.to("cpu").detach().numpy().copy()
+        maxid1 = self.detect_peaks(sim_np, order=0.7, filter_size=100)
+
+        return maxid1
+
+    # ピーク検出関数
+    def detect_peaks(image, filter_size=3, order=0.5):
+        local_max = maximum_filter(image, footprint=np.ones((filter_size, filter_size)), mode='constant')
+        detected_peaks = np.ma.array(image, mask=~(image == local_max))
+
+        # 小さいピーク値を排除（最大ピーク値のorder倍のピークは排除）
+        temp = np.ma.array(detected_peaks, mask=~(detected_peaks >= detected_peaks.max() * order))
+        peaks_index = np.where((temp.mask != True))
+        return peaks_index
 
 if __name__ == "__main__":
     cfil_agent = CFIL()
+    position_detector = PositionDetector()
 
     app.run(debug=False, port=PORT, host=HOST)
