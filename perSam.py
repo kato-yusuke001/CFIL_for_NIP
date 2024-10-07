@@ -64,11 +64,18 @@ class PerSAM:
         ref_feat = self.predictor.features.squeeze().permute(1, 2, 0)
         ref_mask = F.interpolate(ref_mask, size=ref_feat.shape[0: 2], mode="bilinear")
         ref_mask = ref_mask.squeeze()[0]
-        # Target feature extraction
+        # # Target feature extraction
+        # self.target_feat = ref_feat[ref_mask > 0]
+        # self.target_embedding = self.target_feat.mean(0).unsqueeze(0)
+        # self.target_feat = self.target_embedding / self.target_embedding.norm(dim=-1, keepdim=True)
+        # self.target_embedding = self.target_embedding.unsqueeze(0)
+
+        # Target feature extraction(PerSam)
         self.target_feat = ref_feat[ref_mask > 0]
-        self.target_embedding = self.target_feat.mean(0).unsqueeze(0)
-        self.target_feat = self.target_embedding / self.target_embedding.norm(dim=-1, keepdim=True)
-        self.target_embedding = self.target_embedding.unsqueeze(0)
+        self.target_embedding = self.target_feat.mean(0).unsqueeze(0).unsqueeze(0)
+        self.target_feat_mean = self.target_feat.mean(0)
+        self.target_feat_max = torch.max(self.target_feat, dim=0)[0]
+        self.target_feat = (self.target_feat_max / 2 + self.target_feat_mean / 2).unsqueeze(0)
     
     
     def executePerSAM(self, test_image):             
@@ -417,6 +424,24 @@ class PerSAM:
     def save_heatmap(self, name):
         cv2.imwrite(os.path.join(self.output_path, name), cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))
     
+
+    def getSimirality(self, test_image):
+        # Image feature encoding
+        self.predictor.set_image(test_image)
+        test_feat = self.predictor.features.squeeze()
+        # Cosine similarity
+        C, h, w = test_feat.shape
+        test_feat = test_feat / test_feat.norm(dim=0, keepdim=True)
+        test_feat = test_feat.reshape(C, h * w)
+        sim = self.target_feat @ test_feat
+        sim = sim.reshape(1, 1, h, w)
+        sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
+        sim = self.predictor.model.postprocess_masks(
+                        sim,
+                        input_size=self.predictor.input_size,
+                        original_size=self.predictor.original_size).squeeze()
+        return sim
+
 def sim_to_heatmap(sim):
     if torch.is_tensor(sim):
         x = sim.to("cpu").detach().numpy().copy()

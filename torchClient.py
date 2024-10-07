@@ -170,7 +170,7 @@ class LoadSAMModel(NIPClient):
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
 
         except Exception as e:
-            log_error("Error in loadTrainedModel: {}".format(e))
+            log_error("Error in load SAM Model: {}".format(e))
             return solution.judge_fail()
 
 # CFIL推論実行リクエスト
@@ -256,7 +256,7 @@ class LoadSAM_f_Model(NIPClient):
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
 
         except Exception as e:
-            log_error("Error in loadTrainedModel: {}".format(e))
+            log_error("Error in load SAM-f Model: {}".format(e))
             return solution.judge_fail()
 
 # CFIL推論実行リクエスト
@@ -323,4 +323,20 @@ class Estimate_f(NIPClient):
 
         except Exception as e:
             log_error("Error in Estimate: {}".format(e))
+            return solution.judge_fail()
+        
+# SAMモデルロードリクエスト
+class DetectPositions(NIPClient):
+    def execute(self, solution):
+        try:
+            res = request_posts(solution, _act="detectPositions")
+            if(check_res(res)):
+                log_meesage("DetectPositions Completed")
+                return solution.judge_pass()
+            else:
+                log_error("DetectPositions Failed")
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in DetectPositions: {}".format(e))
             return solution.judge_fail()
