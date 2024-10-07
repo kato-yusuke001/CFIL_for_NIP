@@ -107,6 +107,14 @@ def get_variable(solution, variable_name):
     val = list(solution.get_variable(variable_id).values())
     return val 
 
+def set_variable_string(solution, variable_name, value):
+    variable_id = solution.get_variable_id(variable_name)
+    if variable_id == 0:
+        log_error("Variable named {} did not found".format(variable_name))
+        return solution.judge_fail()
+    solution.set_variable_string(variable_id, value)
+    return solution
+
 
 class NIPClient(metaclass=abc.ABCMeta):
     # 初期化処理
@@ -330,11 +338,15 @@ class DetectPositions(NIPClient):
     def execute(self, solution):
         try:
             res = request_posts(solution, _act="detectPositions")
+            output = eval(res.text)
+            set_variable_string(solution, "work_positions", res.text)
+            set_variable(solution, "work_positions_x", output[0])
+            set_variable(solution, "work_positions_y", output[1])
             if(check_res(res)):
-                log_meesage("DetectPositions Completed")
+                log_meesage("DetectPositions Completed {}".format(output))
                 return solution.judge_pass()
             else:
-                log_error("DetectPositions Failed")
+                log_error("DetectPositions Failed {}".format(output))
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
 
         except Exception as e:

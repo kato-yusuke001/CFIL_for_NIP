@@ -98,8 +98,8 @@ def Estimate_f():
     log_meesage("Estimation Completed {}".format(ret))
     return ret
 
-@app.route("/detectPosition", methods=["POST"])
-def detectPosition():
+@app.route("/detectPositions", methods=["POST"])
+def detectPositions():
     global position_detector
     ret = str(position_detector.detectPositions())
     log_meesage("Positions Detected {}".format(ret))
@@ -244,12 +244,12 @@ class PositionDetector:
     def __init__(self):
         pass
 
-    def initialize(self, ref_model_path, save_path):
+    def initialize(self, ref_path, save_path):
         from perSam import PerSAM
         self.per_sam = PerSAM(
                     # annotation_path="sam\\ref", 
-                    annotation_path=os.path.join(ref_model_path, "ref"), 
-                    output_path=os.path.join(save_path, "masked_images"))
+                    annotation_path=os.path.join(ref_path, "ref_overhead_view"), 
+                    output_path=os.path.join(save_path, "results_overhead_view"))
         
         self.per_sam.loadSAM()
 
@@ -271,12 +271,12 @@ class PositionDetector:
         image = frame[self.crop_y[0]:self.crop_y[1], self.crop_x[0]:self.crop_x[1]]
         sim = self.per_sam.getSimirality(image)
         sim_np = sim.to("cpu").detach().numpy().copy()
-        maxid1 = self.detect_peaks(sim_np, order=0.7, filter_size=100)
+        maxid1 = self.detect_peaks(sim_np, filter_size=100, order=0.7)
 
-        return maxid1
+        return [maxid1[0].tolist(), maxid1[1].tolist()]
 
     # ピーク検出関数
-    def detect_peaks(image, filter_size=3, order=0.5):
+    def detect_peaks(self, image, filter_size=3, order=0.5):
         local_max = maximum_filter(image, footprint=np.ones((filter_size, filter_size)), mode='constant')
         detected_peaks = np.ma.array(image, mask=~(image == local_max))
 
@@ -288,5 +288,6 @@ class PositionDetector:
 if __name__ == "__main__":
     cfil_agent = CFIL()
     position_detector = PositionDetector()
+    position_detector.initialize("sam", "sam")
 
     app.run(debug=False, port=PORT, host=HOST)
