@@ -26,6 +26,8 @@ class ChArucoModule:
         self.aruco = cv2.aruco
         if aruco_dict == "5X5_100":
             self.aruco_dict = self.aruco.getPredefinedDictionary(self.aruco.DICT_5X5_100)
+        elif aruco_dict == "6X6_250":
+            self.aruco_dict = self.aruco.getPredefinedDictionary(self.aruco.DICT_6X6_250)
         else:
             raise NotImplementedError
         self.squares_x = squares_x
@@ -63,6 +65,8 @@ class ChArucoModule:
             self.cam = Flir()
         elif self.device=="usb_cam":
             self.cam = UsbCam()
+            self.cameraMatrix = np.load("camera_matrix.npy")
+            self.distCoeffs = np.load("distortion_coefficients.npy")
         else:
             raise NotImplementedError
         self.tm = TransformManager()
@@ -229,7 +233,7 @@ if __name__ == "__main__":
     # 印刷の場合 ppi = 300
     # Philips 273B モニタの場合 ppi = 82 
     charuco = ChArucoModule(
-        squares_x=10, squares_y=7, square_length=0.02, marker_length=0.01,
-        aruco_dict="5X5_100", ppi=300, save_charuco_image=False,
+        squares_x=7, squares_y=5, square_length=0.02, marker_length=0.01,
+        aruco_dict="6X6_250", ppi=300, save_charuco_image=False,
         axis_length=0.01, camera_id=0, device="usb_cam")
     charuco.posture_estimation()
