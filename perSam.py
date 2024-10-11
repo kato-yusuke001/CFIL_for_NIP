@@ -78,7 +78,7 @@ class PerSAM:
         self.target_feat = (self.target_feat_max / 2 + self.target_feat_mean / 2).unsqueeze(0)
     
     
-    def executePerSAM(self, test_image):             
+    def executePerSAM(self, test_image, show_heatmap=False):             
         # Image feature encoding
         self.predictor.set_image(test_image)
         test_feat = self.predictor.features.squeeze()
@@ -93,6 +93,10 @@ class PerSAM:
                         sim,
                         input_size=self.predictor.input_size,
                         original_size=self.predictor.original_size).squeeze()
+        
+        if show_heatmap:
+            self.heatmap = sim_to_heatmap(sim)
+
         # Positive-negative location prior
         topk_xy_i, topk_label_i, last_xy_i, last_label_i = self.point_selection(sim, topk=1)
         topk_xy = np.concatenate([topk_xy_i, last_xy_i], axis=0)
@@ -241,7 +245,7 @@ class PerSAM:
                         original_size=self.predictor.original_size).squeeze()
 
         # Positive location prior
-        topk_xy, topk_label = self.point_selection(sim, topk=1)
+        topk_xy, topk_label = self.point_selection_f(sim, topk=1)
 
 
         print('======> Start Training')
@@ -289,7 +293,7 @@ class PerSAM:
         self.weights_np = self.weights.detach().cpu().numpy()
         print('======> Mask weights:\n', self.weights_np)
 
-    def point_selection(self, mask_sim, topk=1):
+    def point_selection_f(self, mask_sim, topk=1):
         # Top-1 point selection
         w, h = mask_sim.shape
         topk_xy = mask_sim.flatten(0).topk(topk)[1]
@@ -367,7 +371,7 @@ class PerSAM:
             self.heatmap = sim_to_heatmap(sim)
         
         # Positive-negative location prior
-        topk_xy, topk_label = self.point_selection(sim, topk=1)
+        topk_xy, topk_label = self.point_selection_f(sim, topk=1)
         
         # Obtain the target guidance for cross-attention layers
         sim = (sim - sim.mean()) / torch.std(sim)

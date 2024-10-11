@@ -21,7 +21,7 @@ def log_error(message):
     logging.error(message)
 
 
-HOST = "192.168.11.54"
+HOST = "192.168.11.3"
 PORT = 5000
 
 PROXY = ""

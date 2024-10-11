@@ -6,5 +6,11 @@ scipy
 joblib
 tqdm
 opencv-python
+opencv-contrib-python
 timm
+matplotlib
+tensorboard
+pytransform3d
+pyrealsense2
+
 git+https://github.com/facebookresearch/segment-anything.git

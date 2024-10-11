@@ -18,7 +18,7 @@ cfil_agent = None
 position_detector = None
 
 # Flask設定
-HOST = "192.168.11.54"
+HOST = "192.168.11.3"
 PORT = 5000
 app = Flask(__name__)
 
@@ -146,10 +146,13 @@ class CFIL:
         try:
             from perSam import PerSAM
             print(image_path, image_path)
+            self.output_path = os.path.join(*image_path.split("\\")[:-2], "output_images")
             self.per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(model_path, "ref"), 
-                        output_path=os.path.join(image_path, "masked_images"))
+                        # output_path=os.path.join(image_path, "masked_images"))
+                        output_path=self.output_path)
+            
             self.per_sam.loadSAM()
             self.use_sam = True
             return True
@@ -160,9 +163,14 @@ class CFIL:
     def estimate_from_image(self, image_path):
         image = cv2.imread(image_path+".jpg")
         image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+        image_num = image_path.split("\\")[-1].split("_")[0]
         if self.use_sam:
-            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image)
-            image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=True)
+            image = self.per_sam.save_masked_image(masks[best_idx], image, image_num+"_mask.jpg")
+            self.per_sam.save_heatmap(image_num+"_similarity.jpg")
+            # image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+            # self.per_sam.save_heatmap(image_path.split("\\")[-1]+"_similarity.jpg")
+
 
         image = np.transpose(image, [2, 0, 1])
         image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
@@ -172,7 +180,7 @@ class CFIL:
             # appraoch
             output_tensor, _, att = self.approach_model(image_tensor)
             output = output_tensor.to('cpu').detach().numpy().copy()
-            self.save_attention_fig(image_tensor, att, image_path)
+            self.save_attention_fig(image_tensor, att, image_num)
 
         return output[0].tolist()
     
@@ -212,7 +220,7 @@ class CFIL:
         return output[0].tolist()
     
 
-    def save_attention_fig(self, inputs, attention, image_path):
+    def save_attention_fig(self, inputs, attention, image_num):
         def min_max(x, axis=None):
             min = x.min(axis=axis, keepdims=True)
             max = x.max(axis=axis, keepdims=True)
@@ -233,7 +241,7 @@ class CFIL:
                 jet_map = cv2.applyColorMap(vis_map.astype(np.uint8), cv2.COLORMAP_JET)
                 v_img = v_img.astype(np.uint8)
                 jet_map = cv2.addWeighted(v_img, 0.5, jet_map, 0.5, 0)
-                cv2.imwrite(image_path+"_attntion.jpg", cv2.vconcat([v_img, jet_map]))
+                cv2.imwrite(os.path.join(self.output_path, image_num + "_attntion.jpg"), cv2.vconcat([v_img, jet_map]))
 
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
