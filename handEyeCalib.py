@@ -6,7 +6,7 @@ import rtde_receive
 from scipy.spatial.transform import Rotation as R
 np.set_printoptions(precision=3, suppress=True)
 
-from charuco.charuco import ChArucoModule
+from calib.charuco import ChArucoModule
 
 """ 参考URL
 カメラの外部パラメータ行列を最小二乗法で推定する
