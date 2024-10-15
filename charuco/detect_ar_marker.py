@@ -10,8 +10,8 @@ detector = aruco.ArucoDetector(dictionary, parameters)
 
 # Webカメラをキャプチャ
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
 if not cap.isOpened():
     print("Webカメラが見つかりません")
