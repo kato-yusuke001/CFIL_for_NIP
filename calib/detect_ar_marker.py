@@ -1,5 +1,6 @@
 import cv2
 from cv2 import aruco
+from rs_utils import RealSense
 
 # マーカー種類を定義
 dictionary = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
@@ -9,20 +10,16 @@ parameters = aruco.DetectorParameters()
 detector = aruco.ArucoDetector(dictionary, parameters)
 
 # Webカメラをキャプチャ
-cap = cv2.VideoCapture(0)
+# cap = cv2.VideoCapture(0)
 # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
-if not cap.isOpened():
-    print("Webカメラが見つかりません")
-    exit()
+cap = RealSense()
 
 while True:
     # フレームを取得
-    ret, frame = cap.read()
-    if not ret:
-        break
-
+    frames, depth_images, _, _ = cap.get_image(crop=False, get_mask=False)
+    frame = frames[0]
+    
     # グレースケールに変換
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -42,5 +39,5 @@ while True:
         break
 
 # リソースを解放
-cap.release()
+cap.close()
 cv2.destroyAllWindows()

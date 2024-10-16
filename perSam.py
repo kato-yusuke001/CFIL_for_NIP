@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import os
 from tqdm import tqdm
 from sam.show import *
+from scipy.ndimage import maximum_filter
 
 # annotation_path: 参照画像が格納されているフォルダ名
 # test_images_path: セグメンテーションしたい画像が格納されているフォルダ名（画像のファイル名は00.png、01.pngのような命名規則）
@@ -445,6 +446,11 @@ class PerSAM:
                         input_size=self.predictor.input_size,
                         original_size=self.predictor.original_size).squeeze()
         return sim
+    
+    def getPeaks(self, test_image):
+        sim = self.getSimirality(test_image)
+        peaks_index = detect_peaks(sim.cpu().detach().numpy(), order=0.7, filter_size=100)
+        return peaks_index
 
 def sim_to_heatmap(sim):
     if torch.is_tensor(sim):
@@ -462,6 +468,17 @@ class Mask_Weights(nn.Module):
     def __init__(self):
         super().__init__()
         self.weights = nn.Parameter(torch.ones(2, 1, requires_grad=True) / 3)
+
+
+# ピーク検出関数
+def detect_peaks(image, filter_size=3, order=0.5):
+    local_max = maximum_filter(image, footprint=np.ones((filter_size, filter_size)), mode='constant')
+    detected_peaks = np.ma.array(image, mask=~(image == local_max))
+
+    # 小さいピーク値を排除（最大ピーク値のorder倍のピークは排除）
+    temp = np.ma.array(detected_peaks, mask=~(detected_peaks >= detected_peaks.max() * order))
+    peaks_index = np.where((temp.mask != True))
+    return peaks_index
 
 def camera_demo():
     import cv2

@@ -11,6 +11,12 @@ from CFIL_for_NIP.memory import ApproachMemory
 from CFIL_for_NIP.network import ABN128, ABN256
 from scipy.ndimage import maximum_filter
 
+import pytransform3d.rotations as pyrot
+import pytransform3d.transformations as pytr
+from pytransform3d.transform_manager import TransformManager
+
+from calib.rs_utils import RealSense
+
 from logger import setup_logger
 
 
@@ -105,7 +111,7 @@ def detectPositions():
     log_meesage("Positions Detected {}".format(ret))
     return ret
     
-class CFIL:
+class Agent:
     def __init__(self):
         pass
 
@@ -116,11 +122,11 @@ class CFIL:
 
             self.device = "cuda" if torch.cuda.is_available() else "cpu" 
             if self.image_size == 128:
-                self.approach_model = ABN128()
+                self.cfil = ABN128()
             elif self.image_size == 256:
-                self.approach_model = ABN256()
+                self.cfil = ABN256()
             # print(self.approach_model.state_dict())
-            self.approach_model.to(self.device)
+            self.cfil.to(self.device)
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
 
@@ -136,7 +142,7 @@ class CFIL:
              
     def loadTrainedModel(self, model_path):
         try:
-            self.approach_model.load_state_dict(torch.load(os.path.join(model_path, "approach_model_final.pth"),map_location=self.device))
+            self.cfil.load_state_dict(torch.load(os.path.join(model_path, "approach_model_final.pth"),map_location=self.device))
             return True
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
@@ -175,10 +181,10 @@ class CFIL:
         image = np.transpose(image, [2, 0, 1])
         image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
         image_tensor = torch.unsqueeze(image_tensor, 0)
-        self.approach_model.eval()
+        self.cfil.eval()
         with torch.no_grad():
             # appraoch
-            output_tensor, _, att = self.approach_model(image_tensor)
+            output_tensor, _, att = self.cfil(image_tensor)
             output = output_tensor.to('cpu').detach().numpy().copy()
             self.save_attention_fig(image_tensor, att, image_num)
 
@@ -210,10 +216,10 @@ class CFIL:
         image = np.transpose(image, [2, 0, 1])
         image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
         image_tensor = torch.unsqueeze(image_tensor, 0)
-        self.approach_model.eval()
+        self.cfil.eval()
         with torch.no_grad():
             # appraoch
-            output_tensor, _, att = self.approach_model(image_tensor)
+            output_tensor, _, att = self.cfil(image_tensor)
             output = output_tensor.to('cpu').detach().numpy().copy()
             self.save_attention_fig(image_tensor, att, image_path)
 
@@ -246,7 +252,41 @@ class CFIL:
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
+        
+    def initializePositionDetector(self):
+        self.tm = TransformManager()
+        self.cam = None
+        try:
+            self.cam = RealSense()
+            
+            self.crop_x = [200, 1220]
+            self.crop_y = [150, 950]
+        except Exception as e:
+            log_error("{} : {}".format(type(e), e))
+            return False
+        
+    # TODO: Implement this function
+    def getPositions(self):
+        color_images, depth_images, _, _ = self.cam.get_image(crop=True)
+        peaks_index = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
+        positions = []
+        for i,p in enumerate(peaks_index):
+            self.register_pose([p[1], p[0], 0], [0, 0, 0], "cam", "peak{}".format(i))
+            pass
     
+    def register_pose(self, tvec, rvec, source, target):
+        source_T_target = pytr.transform_from(
+            pyrot.matrix_from_compact_axis_angle(rvec), tvec)
+        self.tm.add_transform(target, source, source_T_target)
+
+    def remove_pose(self, source, target):
+        self.tm.remove_transform(target, source)
+
+    def get_pose(self, source, target):
+        return self.transform_matrix_to_vector(self.tm.get_transform(target, source))
+
+    def get_matrix(self, source, target):
+        return self.tm.get_transform(target, source)
     
 class PositionDetector:
     def __init__(self):
@@ -294,7 +334,7 @@ class PositionDetector:
         return peaks_index
 
 if __name__ == "__main__":
-    cfil_agent = CFIL()
+    cfil_agent = Agent()
     position_detector = PositionDetector()
     position_detector.initialize("sam", "sam")
 

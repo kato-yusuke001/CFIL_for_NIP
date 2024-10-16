@@ -8,7 +8,7 @@ import pytransform3d.transformations as pytr
 from pytransform3d.transform_manager import TransformManager
 
 from rs_utils import RealSense
-from flir_utils import Flir
+# from flir_utils import Flir
 from usbcam_utils import UsbCam
 
 # インストール
@@ -83,7 +83,7 @@ class ChArucoModule:
         np.save(os.path.join(save_dir, "depth_enhanced", "{:07d}.npy".format(i)), depth)
         np.save(os.path.join(save_dir, "cam_in_ob", "{:07d}.npy".format(i)), cam_in_ob)
 
-    def posture_estimation(self, save=False, verpose=False):
+    def posture_estimation(self, save=False, verbose=False):
         # Camera Posture Estimation Using A ChArUco Board
         # https://longervision.github.io/2017/03/13/ComputerVision/OpenCV/opencv-external-posture-estimation-ChArUco-board/
         # https://github.com/opencv/opencv-python/issues/755
@@ -93,13 +93,13 @@ class ChArucoModule:
         i = 0
         while(True):
             cam_T_center, corners, charucoCorners, color_image, depth_image = self.get_board_pose()
-            if verpose:
+            if verbose:
                 print(cam_T_center)
             if np.any(cam_T_center != None):
                 board_trans.append(cam_T_center[:3])
                 board_rotvec.append(cam_T_center[3:])
                 board_euler.append(R.from_rotvec(board_rotvec[-1]).as_euler("XYZ", degrees=True))
-                if verpose:
+                if verbose:
                     print(board_trans[-1] * 1000, "[mm]", board_euler[-1], "[deg]")
                 color_image = self.draw_coord(color_image, board_trans[-1], board_rotvec[-1], size=4)
             if np.any(corners != None):
@@ -139,7 +139,7 @@ class ChArucoModule:
         rotvec = np.array(board_rotvec).mean(axis=0)
         euler = np.array(board_euler).mean(axis=0)
         print("trans", trans * 1000, "[mm]")
-        if verpose:
+        if verbose:
             print("rotvec", rotvec, "[rad]")
         print("euler", euler, "[deg]")
         # Save csv
@@ -235,5 +235,5 @@ if __name__ == "__main__":
     charuco = ChArucoModule(
         squares_x=7, squares_y=5, square_length=0.02, marker_length=0.01,
         aruco_dict="6X6_250", ppi=300, save_charuco_image=False,
-        axis_length=0.01, camera_id=0, device="usb_cam")
+        axis_length=0.01, camera_id=0, device="D405")
     charuco.posture_estimation()
