@@ -39,7 +39,8 @@ while True:
             y=point[1]
             z=point[2]
             x,y,z=rs.rs2_deproject_pixel_to_point(color_intrinsics, [x, y], z)
-            print("point:",x,y,z)
+            print("point:",x,y,z, point)
+            # print(corners[0][0])
             
     aruco.drawDetectedMarkers(color_image, corners, ids, (0,255,0))
 
@@ -49,4 +50,5 @@ while True:
     cv2.imshow("RealsenseImage",images)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
+        cv2.imwrite("image.jpg", color_image)
         break

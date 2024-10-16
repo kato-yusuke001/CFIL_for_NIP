@@ -103,7 +103,7 @@ class RealSense:
                 depth_images.append(depth_img)
                 mask_images.append(None)
                 max_contours.append(None)
-        return color_images, depth_images, mask_images, max_contours
+        return color_images, depth_images, mask_images, max_contours, frames
 
     def make_mask(self, depth_img):
         clip_img = (depth_img < self.clipping_distance) * depth_img
@@ -161,6 +161,10 @@ class RealSense:
             dt = time.time() - before
             print("FPS:", 1/dt)
         cv2.destroyAllWindows()
+    
+    def get_point_from_pixel(self, x, y, depth, camera_id=0):
+        x, y, z = rs.rs2_deproject_pixel_to_point(self.color_intrinsics[camera_id], [x, y], depth)
+        return x, y, z
 
     def close(self):
         # stop streaming
