@@ -25,6 +25,55 @@ class CalibCeilingCamera:
         self.cameraMatrix = self.cam.cameraMatrix_woCrop[self.camera_id]
         self.distCoeffs = self.cam.distCoeffs[self.camera_id]
 
+    def force_calib(self):
+        marker_04 = self.b_t_t["04"]
+        marker_09 = self.b_t_t["09"]
+
+        color_images, depth_images, _, _, frames = self.cam.get_image(crop=False, get_mask=False)
+        color_image = color_images[self.camera_id]
+        self.color_image_original = color_image.copy()
+        depth_image = depth_images[self.camera_id]
+        self.depth_image_original = depth_image.copy()
+
+        depth_frame = frames.get_depth_frame()
+
+        s_time = time.time()
+        while time.time()-s_time<5:
+            gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
+            # Detect markers
+            corners, ids, rejectedImgPoints = self.aruco.detectMarkers(
+                gray_image, self.aruco_dict, parameters=self.arucoParams)
+            
+            if ids is not None and len(ids) ==5:
+                break
+
+
+        ratio = []
+        center_id = 4
+        for i,c in zip(ids.ravel(), corners):
+            if i == center_id:
+                continue
+            diff_X = abs(self.b_t_t["{:02}".format(i)][0] - self.b_t_t["{:02}".format(center_id)][0])
+            diff_Y = abs(self.b_t_t["{:02}".format(i)][1] - self.b_t_t["{:02}".format(center_id)][1])
+            diff_x = abs(c[0].mean(axis=0)[0] - corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[0])
+            diff_y = abs(c[0].mean(axis=0)[1] - corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[1])
+
+            ratio.append([diff_X/diff_x, diff_Y/diff_y])
+        ratio = np.average(ratio, axis=0)
+
+        np.save("ratio.npy", ratio)
+
+        # check
+        diff_x = corners[ids.ravel().tolist().index(0)][0].mean(axis=0)[0]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[0]
+        diff_y = corners[ids.ravel().tolist().index(0)][0].mean(axis=0)[1]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[1]
+        X = diff_x*ratio[0] + self.b_t_t["{:02}".format(center_id)][0]
+        Y = diff_y*ratio[1] + self.b_t_t["{:02}".format(center_id)][1]
+        print("recall X:{}, Y:{}".format(X, Y))
+        print("actual X:{}, Y:{}".format(self.b_t_t["00"][0], self.b_t_t["00"][1]))
+
+        return ratio
+
+
 
     def preprocess(self):
         marker_04 = self.b_t_t["04"]
