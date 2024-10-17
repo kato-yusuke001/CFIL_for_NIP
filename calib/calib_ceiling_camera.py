@@ -4,6 +4,10 @@ import cv2
 import time
 from scipy.spatial.transform import Rotation as R
 
+import pytransform3d.rotations as pyrot
+import pytransform3d.transformations as pytr
+from pytransform3d.transform_manager import TransformManager
+
 from rs_utils import RealSense
 
 class CalibCeilingCamera:
@@ -163,21 +167,42 @@ class CalibCeilingCamera:
 
         return np.squeeze(np.array(c_R_t)), np.squeeze(np.array(c_t_t)), np.array(b_R_t), np.array(b_t_t)
 
+    # def calibration(self):
+    #     c_R_t, c_t_t, b_R_t, b_t_t = self.readARMarker()
+    #     print(c_R_t.shape, c_t_t.shape, b_R_t.shape, b_t_t.shape)
+    #     g_R_c, g_t_c = cv2.calibrateHandEye(
+    #         R_gripper2base=b_R_t,
+    #         t_gripper2base=b_t_t,
+    #         R_target2cam=c_R_t,
+    #         t_target2cam=c_t_t,
+    #         method=cv2.CALIB_HAND_EYE_PARK)
+
+    #     print("g_R_c:", g_R_c)
+    #     print("g_t_c:", g_t_c)
+
+    #     np.save("camera_pose.npy",np.hstack([g_t_c.ravel(), g_R_c.ravel()]))
+    #     return g_R_c, g_t_c
+
     def calibration(self):
+        tm = TransformManager()
+
         c_R_t, c_t_t, b_R_t, b_t_t = self.readARMarker()
-        print(c_R_t.shape, c_t_t.shape, b_R_t.shape, b_t_t.shape)
-        g_R_c, g_t_c = cv2.calibrateHandEye(
-            R_gripper2base=b_R_t,
-            t_gripper2base=b_t_t,
-            R_target2cam=c_R_t,
-            t_target2cam=c_t_t,
-            method=cv2.CALIB_HAND_EYE_PARK)
+        self.register_pose(c_t_t[0], c_R_t[0], "cam", "target")
+        self.register_pose(b_t_t[0], b_R_t[0], "base", "target")
+        cam_in_base = tm.get_transform("base", "cam")
+        np.save("camera_pose.npy",cam_in_base)
+        return cam_in_base
+    
+    def register_pose(self, tvec, rvec, source, target):
+        source_T_target = pytr.transform_from(
+            pyrot.matrix_from_compact_axis_angle(rvec), tvec)
+        self.tm.add_transform(target, source, source_T_target)
 
-        print("g_R_c:", g_R_c)
-        print("g_t_c:", g_t_c)
+    def remove_pose(self, source, target):
+        self.tm.remove_transform(target, source)
 
-        np.save("camera_pose.npy",np.hstack([g_t_c.ravel(), g_R_c.ravel()]))
-        return g_R_c, g_t_c
+    def get_pose(self, source, target):
+        return self.transform_matrix_to_vector(self.tm.get_transform(target, source))
 
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
