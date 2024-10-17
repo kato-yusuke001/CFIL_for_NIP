@@ -10,10 +10,12 @@ import torch
 from CFIL_for_NIP.memory import ApproachMemory
 from CFIL_for_NIP.network import ABN128, ABN256
 from scipy.ndimage import maximum_filter
+from scipy.spatial.transform import Rotation as R
 
 import pytransform3d.rotations as pyrot
 import pytransform3d.transformations as pytr
 from pytransform3d.transform_manager import TransformManager
+
 
 from calib.rs_utils import RealSense
 
@@ -108,6 +110,27 @@ def Estimate_f():
 def detectPositions():
     global position_detector
     ret = str(position_detector.detectPositions())
+    log_meesage("Positions Detected {}".format(ret))
+    return ret
+
+###################################################################
+# Position Detector
+###################################################################
+@app.route("/initialize_PD", methods=["POST"])
+def initialise_pd():
+    global cfil_agent
+    ret = cfil_agent.initialize_positionDetector()
+    if(ret):
+        log_meesage("Position Detector Initialized")
+        return "Success"
+    else:
+        log_error("Position Detector Initialization Failed")
+        return "False"
+
+@app.route("/get_positions", methods=["POST"])
+def get_positions():
+    global cfil_agent
+    ret = str(cfil_agent.get_positions())
     log_meesage("Positions Detected {}".format(ret))
     return ret
     
@@ -252,27 +275,64 @@ class Agent:
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
-        
-    def initializePositionDetector(self):
-        self.tm = TransformManager()
-        self.cam = None
+
+###############################################################
+# Position Detector
+###############################################################
+
+    def initialize_positionDetector(self):
         try:
+            self.camera_id = 0
+            self.tm = TransformManager()
+            self.cam = None
+        
             self.cam = RealSense()
             
-            self.crop_x = [200, 1220]
-            self.crop_y = [150, 950]
+            # self.crop_x = [200, 1220]
+            # self.crop_y = [150, 950]
+
+            self.ratio = np.load("calib/ratio.npy")
+            self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
+            self.center_postion = [0.0, -0.5]
+
+            # self.camera_pose = np.load("calib/camera_pose.npy")
+            # self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
+
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    # TODO: Implement this function
-    def getPositions(self):
-        color_images, depth_images, _, _ = self.cam.get_image(crop=True)
+    def get_positions(self):
+        color_images, depth_images, _, _, _ = self.cam.get_image(crop=True)
         peaks_index = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
-        positions = []
-        for i,p in enumerate(peaks_index):
-            self.register_pose([p[1], p[0], 0], [0, 0, 0], "cam", "peak{}".format(i))
-            pass
+        positions_X = []
+        positions_Y = []
+        # xy の順番は要確認
+        for i in enumerate(len(peaks_index[0])):
+            X = self.center_postion[0] + (peaks_index[1][i] - self.center_pixels[0])*self.ratio[0]
+            Y = self.center_postion[1] + (peaks_index[0][i] - self.center_pixels[1])*self.ratio[1]
+            positions_X.append(X)
+            positions_Y.append(Y)
+
+        return [positions_X, positions_Y]
+    
+    # def get_positions(self):
+    #     color_images, depth_images, _, _, frames = self.cam.get_image(crop=True)
+    #     peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
+    #     positions_X = []
+    #     positions_Y = []
+    #     # xy の順番は要確認
+    #     for i in enumerate(len(peaks_pixels[0])):
+    #         depth_frame = frames.get_depth_frame()
+    #         depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
+    #         tvec = [self.cam.get_point_from_pixel(self.cam.color_intrinsics, peaks_pixels[1][i], peaks_pixels[0][i], depth)]
+    #         rvec = R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec()
+    #         self.register_pose(tvec, rvec, "cam", "target")
+    #         pose = self.get_pose("base", "target")
+    #         positions_X.append(pose[0])
+    #         positions_Y.append(pose[1])
+
+    #     return [positions_X, positions_Y]
     
     def register_pose(self, tvec, rvec, source, target):
         source_T_target = pytr.transform_from(
@@ -288,54 +348,54 @@ class Agent:
     def get_matrix(self, source, target):
         return self.tm.get_transform(target, source)
     
-class PositionDetector:
-    def __init__(self):
-        pass
+# class PositionDetector:
+#     def __init__(self):
+#         pass
 
-    def initialize(self, ref_path, save_path):
-        from perSam import PerSAM
-        self.per_sam = PerSAM(
-                    # annotation_path="sam\\ref", 
-                    annotation_path=os.path.join(ref_path, "ref_overhead_view"), 
-                    output_path=os.path.join(save_path, "results_overhead_view"))
+#     def initialize(self, ref_path, save_path):
+#         from perSam import PerSAM
+#         self.per_sam = PerSAM(
+#                     # annotation_path="sam\\ref", 
+#                     annotation_path=os.path.join(ref_path, "ref_overhead_view"), 
+#                     output_path=os.path.join(save_path, "results_overhead_view"))
         
-        self.per_sam.loadSAM()
+#         self.per_sam.loadSAM()
 
-        self.cap = None
-        try:
-            self.cap = cv2.VideoCapture(0)
-            self.cap = cv2.VideoCapture(0)
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920) # カメラ画像の横幅を設定
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080) # カメラ画像の縦幅を設定
+#         self.cap = None
+#         try:
+#             self.cap = cv2.VideoCapture(0)
+#             self.cap = cv2.VideoCapture(0)
+#             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920) # カメラ画像の横幅を設定
+#             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080) # カメラ画像の縦幅を設定
 
-            self.crop_x = [200, 1220]
-            self.crop_y = [150, 950]
-        except Exception as e:
-            log_error("{} : {}".format(type(e), e))
-            return False
+#             self.crop_x = [200, 1220]
+#             self.crop_y = [150, 950]
+#         except Exception as e:
+#             log_error("{} : {}".format(type(e), e))
+#             return False
 
-    def detectPositions(self):
-        ret, frame = self.cap.read()
-        image = frame[self.crop_y[0]:self.crop_y[1], self.crop_x[0]:self.crop_x[1]]
-        sim = self.per_sam.getSimirality(image)
-        sim_np = sim.to("cpu").detach().numpy().copy()
-        maxid1 = self.detect_peaks(sim_np, filter_size=100, order=0.7)
+#     def detectPositions(self):
+#         ret, frame = self.cap.read()
+#         # frame = frame[self.crop_y[0]:self.crop_y[1], self.crop_x[0]:self.crop_x[1]]
+#         sim = self.per_sam.getSimirality(frame)
+#         sim_np = sim.to("cpu").detach().numpy().copy()
+#         maxid1 = self.detect_peaks(sim_np, filter_size=100, order=0.7)
 
-        return [maxid1[0].tolist(), maxid1[1].tolist()]
+#         return [maxid1[0].tolist(), maxid1[1].tolist()]
 
-    # ピーク検出関数
-    def detect_peaks(self, image, filter_size=3, order=0.5):
-        local_max = maximum_filter(image, footprint=np.ones((filter_size, filter_size)), mode='constant')
-        detected_peaks = np.ma.array(image, mask=~(image == local_max))
+#     # ピーク検出関数
+#     def detect_peaks(self, image, filter_size=3, order=0.5):
+#         local_max = maximum_filter(image, footprint=np.ones((filter_size, filter_size)), mode='constant')
+#         detected_peaks = np.ma.array(image, mask=~(image == local_max))
 
-        # 小さいピーク値を排除（最大ピーク値のorder倍のピークは排除）
-        temp = np.ma.array(detected_peaks, mask=~(detected_peaks >= detected_peaks.max() * order))
-        peaks_index = np.where((temp.mask != True))
-        return peaks_index
+#         # 小さいピーク値を排除（最大ピーク値のorder倍のピークは排除）
+#         temp = np.ma.array(detected_peaks, mask=~(detected_peaks >= detected_peaks.max() * order))
+#         peaks_index = np.where((temp.mask != True))
+#         return peaks_index
 
 if __name__ == "__main__":
     cfil_agent = Agent()
-    position_detector = PositionDetector()
-    position_detector.initialize("sam", "sam")
+    # position_detector = PositionDetector()
+    # position_detector.initialize("sam", "sam")
 
     app.run(debug=False, port=PORT, host=HOST)

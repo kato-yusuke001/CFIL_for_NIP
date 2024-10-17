@@ -35,7 +35,7 @@ class CalibCeilingCamera:
         depth_image = depth_images[self.camera_id]
         self.depth_image_original = depth_image.copy()
 
-        depth_frame = frames.get_depth_frame()
+        # depth_frame = frames.get_depth_frame()
 
         s_time = time.time()
         while time.time()-s_time<5:
@@ -134,13 +134,11 @@ class CalibCeilingCamera:
         c_R_t, c_t_t, b_R_t, b_t_t = [], [], [], []
         s_time = time.time()
         while time.time()-s_time<5:
-            color_images, depth_images, _, _, frames = self.cam.get_image(crop=False, get_mask=False)
+            color_images, depth_images, _, _, _ = self.cam.get_image(crop=False, get_mask=False)
             color_image = color_images[self.camera_id]
             self.color_image_original = color_image.copy()
             depth_image = depth_images[self.camera_id]
             self.depth_image_original = depth_image.copy()
-
-            depth_frame = frames.get_depth_frame()
 
             gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
             # Detect markers
@@ -178,11 +176,13 @@ class CalibCeilingCamera:
         print("g_R_c:", g_R_c)
         print("g_t_c:", g_t_c)
 
+        np.save("camera_pose.npy",np.hstack([g_t_c.ravel(), g_R_c.ravel()]))
         return g_R_c, g_t_c
 
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
-    calib.calibration()
+    # calib.calibration()
+    calib.force_calib()
     calib.cam.close()
 
    

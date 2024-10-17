@@ -332,14 +332,27 @@ class Estimate_f(NIPClient):
         except Exception as e:
             log_error("Error in Estimate: {}".format(e))
             return solution.judge_fail()
-        
-# SAMモデルロードリクエスト
+
+#ワーク位置検出器初期化リクエスト
+class Initialize_PD(NIPClient):
+    def execute(self, solution):
+        try:
+            res = request_post(solution, _act="initialize_PD")
+            if(check_res(res)):
+                return solution.judge_pass()
+            else:
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in Initialize_PD: {}".format(e))
+            return solution.judge_fail()
+
+# ワーク位置検出リクエスト
 class DetectPositions(NIPClient):
     def execute(self, solution):
         try:
-            res = request_posts(solution, _act="detectPositions")
+            res = request_posts(solution, _act="get_positions")
             output = eval(res.text)
-            set_variable_string(solution, "work_positions", res.text)
             set_variable(solution, "work_positions_x", output[0])
             set_variable(solution, "work_positions_y", output[1])
             if(check_res(res)):
