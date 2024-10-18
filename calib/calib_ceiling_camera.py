@@ -116,8 +116,8 @@ class CalibCeilingCamera:
         target_id = 3
         diff_x = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[0]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[0]
         diff_y = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[1]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[1]
-        X = diff_x*ratio[0] + self.b_t_t["{:02}".format(center_id)][0]
-        Y = diff_y*ratio[1] - self.b_t_t["{:02}".format(center_id)][1]
+        X = self.b_t_t["{:02}".format(center_id)][0] + diff_x*ratio[0] 
+        Y = self.b_t_t["{:02}".format(center_id)][1] - diff_y*ratio[1]
         print("recall X:{}, Y:{}".format(X, Y))
         print("actual X:{}, Y:{}".format(self.b_t_t["{:02}".format(target_id)][0], self.b_t_t["{:02}".format(target_id)][1]))
 
