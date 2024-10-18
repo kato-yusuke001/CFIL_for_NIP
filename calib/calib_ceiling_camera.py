@@ -64,14 +64,14 @@ class CalibCeilingCamera:
 
             ratio.append([diff_X/diff_x, diff_Y/diff_y])
         ratio = np.average(ratio, axis=0)
-
+        print("ratio:", ratio)
         np.save("ratio.npy", ratio)
 
         # check
         diff_x = corners[ids.ravel().tolist().index(0)][0].mean(axis=0)[0]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[0]
         diff_y = corners[ids.ravel().tolist().index(0)][0].mean(axis=0)[1]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[1]
         X = diff_x*ratio[0] + self.b_t_t["{:02}".format(center_id)][0]
-        Y = diff_y*ratio[1] + self.b_t_t["{:02}".format(center_id)][1]
+        Y = diff_y*ratio[1] - self.b_t_t["{:02}".format(center_id)][1]
         print("recall X:{}, Y:{}".format(X, Y))
         print("actual X:{}, Y:{}".format(self.b_t_t["00"][0], self.b_t_t["00"][1]))
 
@@ -151,10 +151,11 @@ class CalibCeilingCamera:
             
             
             c_R_t, c_t_t, _ = cv2.aruco.estimatePoseSingleMarkers(corners, self.marker_length, self.cameraMatrix, self.distCoeffs)
-            if ids is not None and len(ids) ==10:
+            if ids is not None and len(ids) ==5:
                 b_R_t, b_t_t = [], []
-                for i in range( ids.size ):
-                    b_t_t.append(self.b_t_t["{:02}".format(ids[i][0])])
+                for i, id in enumerate(ids):
+                    # print(id)
+                    b_t_t.append(self.b_t_t["{:02}".format(id[0])])
                     b_R_t.append(R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec())
                     cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, c_R_t[i], c_t_t[i], 0.1)
 
@@ -184,12 +185,14 @@ class CalibCeilingCamera:
     #     return g_R_c, g_t_c
 
     def calibration(self):
-        tm = TransformManager()
+        self.tm = TransformManager()
 
         c_R_t, c_t_t, b_R_t, b_t_t = self.readARMarker()
+        # print(c_R_t, c_t_t, b_R_t, b_t_t)
         self.register_pose(c_t_t[0], c_R_t[0], "cam", "target")
         self.register_pose(b_t_t[0], b_R_t[0], "base", "target")
-        cam_in_base = tm.get_transform("base", "cam")
+        cam_in_base = self.get_pose("base", "cam")
+        print("camera_pose", cam_in_base)
         np.save("camera_pose.npy",cam_in_base)
         return cam_in_base
     
@@ -203,10 +206,22 @@ class CalibCeilingCamera:
 
     def get_pose(self, source, target):
         return self.transform_matrix_to_vector(self.tm.get_transform(target, source))
+    
+    def transform_matrix_to_vector(self, transform):
+        tvec = transform[:3, 3]
+        rvec = R.from_matrix(transform[:3, :3]).as_rotvec()
+        # 回転ベクトルの絶対値を180°以下にする。
+        while True:
+            dr = np.linalg.norm(rvec)
+            if dr > np.radians(180):
+                rvec = rvec * (dr - np.radians(360)) / dr
+            else:
+                break
+        return np.hstack([tvec, rvec])
 
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
-    # calib.calibration()
+    calib.calibration()
     calib.force_calib()
     calib.cam.close()
 
