@@ -21,7 +21,8 @@ def log_error(message):
     logging.error(message)
 
 
-HOST = "192.168.11.3"
+# HOST = "192.168.11.3" #津の設定
+HOST = "192.168.11.54" #西門真設定
 PORT = 5000
 
 PROXY = ""

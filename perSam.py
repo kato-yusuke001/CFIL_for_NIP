@@ -430,7 +430,35 @@ class PerSAM:
         cv2.imwrite(os.path.join(self.output_path, name), cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))
     
 
-    def getSimirality(self, test_image):
+    def loadPositionDetector(self):
+        # Load images and masks
+        ref_image_path = os.path.join(self.annotation_path+"_pd", 'original.jpg') #参照用の元画像
+        ref_mask_path = os.path.join(self.annotation_path+"_pd", 'mask.jpg') #参照用の元マスク画像
+        ref_image = cv2.imread(ref_image_path)
+        ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
+        ref_mask = cv2.imread(ref_mask_path)
+        ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
+
+        print("======> Obtain Location Prior" )
+        # Image features encoding
+        ref_mask = self.predictor.set_image(ref_image, ref_mask)
+        ref_feat = self.predictor.features.squeeze().permute(1, 2, 0)
+        ref_mask = F.interpolate(ref_mask, size=ref_feat.shape[0: 2], mode="bilinear")
+        ref_mask = ref_mask.squeeze()[0]
+        # # Target feature extraction
+        # self.target_feat = ref_feat[ref_mask > 0]
+        # self.target_embedding = self.target_feat.mean(0).unsqueeze(0)
+        # self.target_feat = self.target_embedding / self.target_embedding.norm(dim=-1, keepdim=True)
+        # self.target_embedding = self.target_embedding.unsqueeze(0)
+
+        # Target feature extraction(PerSam)
+        self.target_feat_pd = ref_feat[ref_mask > 0]
+        self.target_embedding_pd = self.target_feat_pd.mean(0).unsqueeze(0).unsqueeze(0)
+        self.target_feat_mean_pd = self.target_feat_pd.mean(0)
+        self.target_feat_max_pd = torch.max(self.target_feat_pd, dim=0)[0]
+        self.target_feat_pd = (self.target_feat_max_pd / 2 + self.target_feat_mean_pd / 2).unsqueeze(0)
+
+    def getSimirality(self, test_image, save_sim=False):
         # Image feature encoding
         self.predictor.set_image(test_image)
         test_feat = self.predictor.features.squeeze()
@@ -438,18 +466,21 @@ class PerSAM:
         C, h, w = test_feat.shape
         test_feat = test_feat / test_feat.norm(dim=0, keepdim=True)
         test_feat = test_feat.reshape(C, h * w)
-        sim = self.target_feat @ test_feat
+        sim = self.target_feat_pd @ test_feat
         sim = sim.reshape(1, 1, h, w)
         sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
         sim = self.predictor.model.postprocess_masks(
                         sim,
                         input_size=self.predictor.input_size,
                         original_size=self.predictor.original_size).squeeze()
+        if save_sim:
+            self.heatmap = sim_to_heatmap(sim)
+            self.save_heatmap("positon_detector_similarity.jpg")
         return sim
     
-    def getPeaks(self, test_image):
-        sim = self.getSimirality(test_image)
-        peaks_index = detect_peaks(sim.cpu().detach().numpy(), order=0.7, filter_size=100)
+    def getPeaks(self, test_image, filter_size=100, order=0.7, save_sim=False):
+        sim = self.getSimirality(test_image, save_sim)
+        peaks_index = detect_peaks(sim.cpu().detach().numpy(), order=order, filter_size=filter_size)
         return peaks_index
 
 def sim_to_heatmap(sim):

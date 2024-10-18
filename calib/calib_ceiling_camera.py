@@ -24,8 +24,10 @@ class CalibCeilingCamera:
         self.preprocess()
 
         self.camera_id = 0
-        # cam_settings = {"width": 640, "height": 480, "fps": 30, "clipping_distance": 1.0}
-        self.cam = RealSense()
+        cam_settings = {"width": 640, "height": 480, "fps": 30, "clipping_distance": 0.2}
+        # crop_settings = [{"crop_size": 300, "crop_center_x": 320, "crop_center_y": 240}]
+        crop_settings = False
+        self.cam = RealSense(**cam_settings, crop_settings=crop_settings)
         self.cameraMatrix = self.cam.cameraMatrix_woCrop[self.camera_id]
         self.distCoeffs = self.cam.distCoeffs[self.camera_id]
 
@@ -47,7 +49,7 @@ class CalibCeilingCamera:
         c_R_t, c_t_t, b_R_t, b_t_t = [], [], [], []
         s_time = time.time()
         while time.time()-s_time<5:
-            color_images, depth_images, _, _, _ = self.cam.get_image(crop=False, get_mask=False)
+            color_images, depth_images, _, _, _ = self.cam.get_image(crop=True, get_mask=False)
             color_image = color_images[self.camera_id]
             self.color_image_original = color_image.copy()
             depth_image = depth_images[self.camera_id]
@@ -83,7 +85,7 @@ class CalibCeilingCamera:
 
     def force_calib(self):
 
-        color_images, depth_images, _, _, frames = self.cam.get_image(crop=False, get_mask=False)
+        color_images, depth_images, _, _, frames = self.cam.get_image(crop=True, get_mask=False)
         color_image = color_images[self.camera_id]
         self.color_image_original = color_image.copy()
         depth_image = depth_images[self.camera_id]
@@ -166,5 +168,5 @@ class CalibCeilingCamera:
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
     calib.calibration()
-    # calib.force_calib()
+    calib.force_calib()
     calib.cam.close()

@@ -26,7 +26,8 @@ cfil_agent = None
 position_detector = None
 
 # Flask設定
-HOST = "192.168.11.3"
+# HOST = "192.168.11.3" #津の設定
+HOST = "192.168.11.54" #西門真設定
 PORT = 5000
 app = Flask(__name__)
 
@@ -128,12 +129,19 @@ def initialise_pd():
         return "False"
 
 @app.route("/get_positions_force", methods=["POST"])
-def get_positions():
+def get_positions_force():
     global cfil_agent
     ret = str(cfil_agent.get_positions_force())
     log_meesage("Positions Detected {}".format(ret))
     return ret
-    
+
+@app.route("/get_positions", methods=["POST"])
+def get_positions():
+    global cfil_agent
+    ret = str(cfil_agent.get_positions())
+    log_meesage("Positions Detected {}".format(ret))
+    return ret
+
 class Agent:
     def __init__(self):
         pass
@@ -298,6 +306,10 @@ class Agent:
             self.camera_pose = np.load("calib/camera_pose.npy")
             self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
 
+            self.per_sam.loadPositionDetector()
+
+            return True
+
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
@@ -318,15 +330,16 @@ class Agent:
     
     def get_positions(self):
         color_images, depth_images, _, _, frames = self.cam.get_image(crop=False)
-        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
+        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
         # xy の順番は要確認
-        for i in enumerate(len(peaks_pixels[0])):
+        for i in range(len(peaks_pixels[0])):
             depth_frame = frames.get_depth_frame()
             depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
-            tvec = [self.cam.get_point_from_pixel(self.cam.color_intrinsics, peaks_pixels[1][i], peaks_pixels[0][i], depth)]
+            tvec = self.cam.get_point_from_pixel(peaks_pixels[1][i], peaks_pixels[0][i], depth)
             rvec = R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec()
+            print(tvec, rvec)
             self.register_pose(tvec, rvec, "cam", "target")
             pose = self.get_pose("base", "target")
             positions_X.append(pose[0])
@@ -347,6 +360,18 @@ class Agent:
 
     def get_matrix(self, source, target):
         return self.tm.get_transform(target, source)
+    
+    def transform_matrix_to_vector(self, transform):
+        tvec = transform[:3, 3]
+        rvec = R.from_matrix(transform[:3, :3]).as_rotvec()
+        # 回転ベクトルの絶対値を180°以下にする。
+        while True:
+            dr = np.linalg.norm(rvec)
+            if dr > np.radians(180):
+                rvec = rvec * (dr - np.radians(360)) / dr
+            else:
+                break
+        return np.hstack([tvec, rvec])
     
 # class PositionDetector:
 #     def __init__(self):

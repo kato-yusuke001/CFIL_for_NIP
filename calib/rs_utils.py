@@ -21,13 +21,16 @@ class RealSense:
                 "crop_size": min(width, height),
                 "crop_center_x": int(width / 2),
                 "crop_center_y": int(height / 2)}] * self.rs_num
+            print("##################################################")
         for i in range(self.rs_num):
             self.pipeline.append(rs.pipeline())
             # initialize streaming
             self.config.append(rs.config())
             self.config[i].enable_device(devices[i].get_info(rs.camera_info.serial_number))
-            self.config[i].enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
-            self.config[i].enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
+            self.config[i].enable_stream(rs.stream.color, 640,  480, rs.format.bgr8, fps)
+            # self.config[i].enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
+            self.config[i].enable_stream(rs.stream.depth,640 , 480, rs.format.z16, fps)
+            # self.config[i].enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
             # start streaming
             self.profile.append(self.pipeline[i].start(self.config[i]))
             # register sensors
