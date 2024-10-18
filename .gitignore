@@ -4,6 +4,7 @@
 *.log
 *.pth
 *.pt
+*/*.npy
 __pycache__
 CFIL_for_NIP/train_data
 image.jpg
