@@ -47,11 +47,12 @@ class CalibCeilingCamera:
         c_R_t, c_t_t, b_R_t, b_t_t = [], [], [], []
         s_time = time.time()
         while time.time()-s_time<5:
-            color_images, depth_images, _, _, _ = self.cam.get_image(crop=False, get_mask=False)
-            color_image = color_images[self.camera_id]
-            self.color_image_original = color_image.copy()
-            depth_image = depth_images[self.camera_id]
-            self.depth_image_original = depth_image.copy()
+            # color_images, depth_images, _, _, _ = self.cam.get_image(crop=False, get_mask=False)
+            # color_image = color_images[self.camera_id]
+            # self.color_image_original = color_image.copy()
+            # depth_image = depth_images[self.camera_id]
+            # self.depth_image_original = depth_image.copy()
+            color_image = cv2.imread("test_Color.png")
 
             gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
             # Detect markers
@@ -161,7 +162,5 @@ class CalibCeilingCamera:
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
     calib.calibration()
-    calib.force_calib()
+    # calib.force_calib()
     calib.cam.close()
-
-   
