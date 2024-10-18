@@ -127,10 +127,10 @@ def initialise_pd():
         log_error("Position Detector Initialization Failed")
         return "False"
 
-@app.route("/get_positions", methods=["POST"])
+@app.route("/get_positions_force", methods=["POST"])
 def get_positions():
     global cfil_agent
-    ret = str(cfil_agent.get_positions())
+    ret = str(cfil_agent.get_positions_force())
     log_meesage("Positions Detected {}".format(ret))
     return ret
     
@@ -295,44 +295,44 @@ class Agent:
             self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
             self.center_postion = [0.0, -0.5]
 
-            # self.camera_pose = np.load("calib/camera_pose.npy")
-            # self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
+            self.camera_pose = np.load("calib/camera_pose.npy")
+            self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
 
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    def get_positions(self):
-        color_images, depth_images, _, _, _ = self.cam.get_image(crop=True)
-        peaks_index = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
+    def get_positions_force(self):
+        color_images, depth_images, _, _, _ = self.cam.get_image(crop=False)
+        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
         positions_X = []
         positions_Y = []
         # xy の順番は要確認
-        for i in enumerate(len(peaks_index[0])):
-            X = self.center_postion[0] + (peaks_index[1][i] - self.center_pixels[0])*self.ratio[0]
-            Y = self.center_postion[1] + (peaks_index[0][i] - self.center_pixels[1])*self.ratio[1]
+        for i in enumerate(len(peaks_pixels[0])):
+            X = self.center_postion[0] + (peaks_pixels[1][i] - self.center_pixels[0])*self.ratio[0]
+            Y = self.center_postion[1] - (peaks_pixels[0][i] - self.center_pixels[1])*self.ratio[1]
             positions_X.append(X)
             positions_Y.append(Y)
 
         return [positions_X, positions_Y]
     
-    # def get_positions(self):
-    #     color_images, depth_images, _, _, frames = self.cam.get_image(crop=True)
-    #     peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
-    #     positions_X = []
-    #     positions_Y = []
-    #     # xy の順番は要確認
-    #     for i in enumerate(len(peaks_pixels[0])):
-    #         depth_frame = frames.get_depth_frame()
-    #         depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
-    #         tvec = [self.cam.get_point_from_pixel(self.cam.color_intrinsics, peaks_pixels[1][i], peaks_pixels[0][i], depth)]
-    #         rvec = R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec()
-    #         self.register_pose(tvec, rvec, "cam", "target")
-    #         pose = self.get_pose("base", "target")
-    #         positions_X.append(pose[0])
-    #         positions_Y.append(pose[1])
+    def get_positions(self):
+        color_images, depth_images, _, _, frames = self.cam.get_image(crop=False)
+        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
+        positions_X = []
+        positions_Y = []
+        # xy の順番は要確認
+        for i in enumerate(len(peaks_pixels[0])):
+            depth_frame = frames.get_depth_frame()
+            depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
+            tvec = [self.cam.get_point_from_pixel(self.cam.color_intrinsics, peaks_pixels[1][i], peaks_pixels[0][i], depth)]
+            rvec = R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec()
+            self.register_pose(tvec, rvec, "cam", "target")
+            pose = self.get_pose("base", "target")
+            positions_X.append(pose[0])
+            positions_Y.append(pose[1])
 
-    #     return [positions_X, positions_Y]
+        return [positions_X, positions_Y]
     
     def register_pose(self, tvec, rvec, source, target):
         source_T_target = pytr.transform_from(
