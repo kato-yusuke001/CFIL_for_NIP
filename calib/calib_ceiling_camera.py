@@ -62,11 +62,15 @@ class CalibCeilingCamera:
             c_R_t, c_t_t, _ = cv2.aruco.estimatePoseSingleMarkers(corners, self.marker_length, self.cameraMatrix, self.distCoeffs)
             if ids is not None and len(ids) ==5:
                 b_R_t, b_t_t = [], []
+                c_R_t = []
                 for i, id in enumerate(ids):
                     b_t_t.append(self.b_t_t["{:02}".format(id[0])])
                     b_R_t.append(R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec())
-                    cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, c_R_t[i], c_t_t[i], 0.1)
-
+                    # cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, c_R_t[i], c_t_t[i], 0.1)
+                    
+                    rvec = R.from_euler("XYZ", [0, 180, 0], degrees=True).as_rotvec()
+                    c_R_t.append(rvec)
+                    cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, rvec, c_t_t[i], 0.1)
             cv2.aruco.drawDetectedMarkers(color_image, corners, ids, (0,255,0))
             cv2.imshow('org', color_image)
 
@@ -128,7 +132,7 @@ class CalibCeilingCamera:
         self.tm = TransformManager()
 
         c_R_t, c_t_t, b_R_t, b_t_t = self.readARMarker()
-        print(c_t_t, b_t_t)
+        # print(c_R_t[0], c_t_t[0], b_R_t[0], b_t_t[0])
         self.register_pose(c_t_t[0], c_R_t[0], "cam", "target")
         self.register_pose(b_t_t[0], b_R_t[0], "base", "target")
         cam_in_base = self.get_pose("base", "cam")
