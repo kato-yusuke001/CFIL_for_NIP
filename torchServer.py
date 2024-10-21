@@ -1,3 +1,4 @@
+import argparse
 import os
 print(os.getcwd())
 import logging
@@ -107,13 +108,6 @@ def Estimate_f():
     log_meesage("Estimation Completed {}".format(ret))
     return ret
 
-@app.route("/detectPositions", methods=["POST"])
-def detectPositions():
-    global position_detector
-    ret = str(position_detector.detectPositions())
-    log_meesage("Positions Detected {}".format(ret))
-    return ret
-
 ###################################################################
 # Position Detector
 ###################################################################
@@ -179,10 +173,10 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    def loadSAMModel(self,image_path, model_path):
+    def loadSAMModel(self,image_path="CFIL_for_NIP\\train_data\\20241008_151849_195\\test_pd", model_path="CFIL_for_NIP\\train_data\\20241008_151849_195"):
         try:
             from perSam import PerSAM
-            print(image_path, image_path)
+            print(image_path, model_path)
             self.output_path = os.path.join(*image_path.split("\\")[:-2], "output_images")
             self.per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
@@ -202,9 +196,9 @@ class Agent:
         image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
         image_num = image_path.split("\\")[-1].split("_")[0]
         if self.use_sam:
-            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=True)
+            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
             image = self.per_sam.save_masked_image(masks[best_idx], image, image_num+"_mask.jpg")
-            self.per_sam.save_heatmap(image_num+"_similarity.jpg")
+            # self.per_sam.save_heatmap(image_num+"_similarity.jpg")
             # image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
             # self.per_sam.save_heatmap(image_path.split("\\")[-1]+"_similarity.jpg")
 
@@ -294,16 +288,15 @@ class Agent:
             self.tm = TransformManager()
             self.cam = None
         
-            self.cam = RealSense()
-            
-            # self.crop_x = [200, 1220]
-            # self.crop_y = [150, 950]
+            crop_settings = [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]
+            self.cam = RealSense(crop_settings=crop_settings)
 
-            self.ratio = np.load("calib/ratio.npy")
-            self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
-            self.center_postion = [0.0, -0.5]
+            self.ratio = np.load("calib/camera_info/ratio.npy")
+            # self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
+            self.center_pixels = [crop_settings[self.camera_id]["crop_size"]//2, crop_settings[self.camera_id]["crop_size"]//2]
+            self.center_postion = [-0.015, -0.535]
 
-            self.camera_pose = np.load("calib/camera_pose.npy")
+            self.camera_pose = np.load("calib/camera_info/camera_pose.npy")
             self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
 
             self.per_sam.loadPositionDetector()
@@ -315,21 +308,21 @@ class Agent:
             return False
         
     def get_positions_force(self):
-        color_images, depth_images, _, _, _ = self.cam.get_image(crop=False)
-        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7)
+        color_images, depth_images, _, _, _ = self.cam.get_image(crop=True)
+        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=60, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
         # xy の順番は要確認
-        for i in enumerate(len(peaks_pixels[0])):
+        for i in range(len(peaks_pixels[0])):
             X = self.center_postion[0] + (peaks_pixels[1][i] - self.center_pixels[0])*self.ratio[0]
             Y = self.center_postion[1] - (peaks_pixels[0][i] - self.center_pixels[1])*self.ratio[1]
-            positions_X.append(X)
-            positions_Y.append(Y)
+            positions_X.append(X*1000) # m -> mm
+            positions_Y.append(Y*1000) # m -> mm
 
-        return [positions_X, positions_Y]
+        return [positions_X, positions_Y, len(positions_X)]
     
     def get_positions(self):
-        color_images, depth_images, _, _, frames = self.cam.get_image(crop=False)
+        color_images, depth_images, _, _, frames = self.cam.get_image(crop=True)
         peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
@@ -339,13 +332,13 @@ class Agent:
             depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
             tvec = self.cam.get_point_from_pixel(peaks_pixels[1][i], peaks_pixels[0][i], depth)
             rvec = R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec()
-            print(tvec, rvec)
+            # print(tvec, rvec)
             self.register_pose(tvec, rvec, "cam", "target")
             pose = self.get_pose("base", "target")
             positions_X.append(pose[0])
             positions_Y.append(pose[1])
 
-        return [positions_X, positions_Y]
+        return [positions_X, positions_Y, len(positions_X)]
     
     def register_pose(self, tvec, rvec, source, target):
         source_T_target = pytr.transform_from(
@@ -373,54 +366,20 @@ class Agent:
                 break
         return np.hstack([tvec, rvec])
     
-# class PositionDetector:
-#     def __init__(self):
-#         pass
+    def test_PD(self):
+        self.loadSAMModel()
+        self.initialize_positionDetector()
+        print(self.get_positions_force())
+        self.get_positions()
 
-#     def initialize(self, ref_path, save_path):
-#         from perSam import PerSAM
-#         self.per_sam = PerSAM(
-#                     # annotation_path="sam\\ref", 
-#                     annotation_path=os.path.join(ref_path, "ref_overhead_view"), 
-#                     output_path=os.path.join(save_path, "results_overhead_view"))
-        
-#         self.per_sam.loadSAM()
-
-#         self.cap = None
-#         try:
-#             self.cap = cv2.VideoCapture(0)
-#             self.cap = cv2.VideoCapture(0)
-#             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920) # カメラ画像の横幅を設定
-#             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080) # カメラ画像の縦幅を設定
-
-#             self.crop_x = [200, 1220]
-#             self.crop_y = [150, 950]
-#         except Exception as e:
-#             log_error("{} : {}".format(type(e), e))
-#             return False
-
-#     def detectPositions(self):
-#         ret, frame = self.cap.read()
-#         # frame = frame[self.crop_y[0]:self.crop_y[1], self.crop_x[0]:self.crop_x[1]]
-#         sim = self.per_sam.getSimirality(frame)
-#         sim_np = sim.to("cpu").detach().numpy().copy()
-#         maxid1 = self.detect_peaks(sim_np, filter_size=100, order=0.7)
-
-#         return [maxid1[0].tolist(), maxid1[1].tolist()]
-
-#     # ピーク検出関数
-#     def detect_peaks(self, image, filter_size=3, order=0.5):
-#         local_max = maximum_filter(image, footprint=np.ones((filter_size, filter_size)), mode='constant')
-#         detected_peaks = np.ma.array(image, mask=~(image == local_max))
-
-#         # 小さいピーク値を排除（最大ピーク値のorder倍のピークは排除）
-#         temp = np.ma.array(detected_peaks, mask=~(detected_peaks >= detected_peaks.max() * order))
-#         peaks_index = np.where((temp.mask != True))
-#         return peaks_index
 
 if __name__ == "__main__":
-    cfil_agent = Agent()
-    # position_detector = PositionDetector()
-    # position_detector.initialize("sam", "sam")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", "-d", action='store_true')
+    args = parser.parse_args()
 
-    app.run(debug=False, port=PORT, host=HOST)
+    cfil_agent = Agent()
+    if args.debug:
+        cfil_agent.test_PD()
+    else:
+        app.run(debug=False, port=PORT, host=HOST)

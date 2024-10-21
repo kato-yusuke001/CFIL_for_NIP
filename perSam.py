@@ -55,6 +55,8 @@ class PerSAM:
         print(ref_image.shape, ref_mask.shape)
         print("======> Load SAM" )
         sam_type, sam_ckpt = 'vit_h', 'sam\\sam_vit_h.pth' #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_l', 'sam\\sam_vit_l.pth' #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_b', 'sam\\sam_vit_b.pth' #学習済みモデルを指定
         
         sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
         sam.eval()
@@ -479,8 +481,16 @@ class PerSAM:
         return sim
     
     def getPeaks(self, test_image, filter_size=100, order=0.7, save_sim=False):
-        sim = self.getSimirality(test_image, save_sim)
+        sim = self.getSimirality(test_image)
         peaks_index = detect_peaks(sim.cpu().detach().numpy(), order=order, filter_size=filter_size)
+        if save_sim:
+            self.heatmap = sim_to_heatmap(sim)
+            for i in range(len(peaks_index[0])):
+                plt.imshow(self.heatmap)
+                plt.scatter(peaks_index[1][i], peaks_index[0][i], color='black', s=5)
+                plt.text(peaks_index[1][i],peaks_index[0][i], 'PEAK!!!', fontsize=9)
+            plt.axis("off")
+            plt.savefig("positon_detector_similarity.jpg")
         return peaks_index
 
 def sim_to_heatmap(sim):

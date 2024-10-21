@@ -356,6 +356,27 @@ class DetectPositions(NIPClient):
             output = eval(res.text)
             set_variable(solution, "work_positions_x", output[0])
             set_variable(solution, "work_positions_y", output[1])
+            set_variable(solution, "work_num", output[2])
+            if(check_res(res)):
+                log_meesage("DetectPositions Completed {}".format(output))
+                return solution.judge_pass()
+            else:
+                log_error("DetectPositions Failed {}".format(output))
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in DetectPositions: {}".format(e))
+            return solution.judge_fail()
+        
+# ワーク位置検出リクエスト(ピクセル比)
+class DetectPositions_force(NIPClient):
+    def execute(self, solution):
+        try:
+            res = request_posts(solution, _act="get_positions_force")
+            output = eval(res.text)
+            set_variable(solution, "work_positions_x", output[0])
+            set_variable(solution, "work_positions_y", output[1])
+            set_variable(solution, "work_num", output[2])
             if(check_res(res)):
                 log_meesage("DetectPositions Completed {}".format(output))
                 return solution.judge_pass()

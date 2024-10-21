@@ -16,7 +16,7 @@ class CalibCeilingCamera:
         self.aruco_dict = self.aruco.getPredefinedDictionary(self.aruco.DICT_6X6_250)        
         self.arucoParams = self.aruco.DetectorParameters()
 
-        self.marker_length = 0.04
+        self.marker_length = 0.08
 
         json_path = "./marker.json"
         with open(json_path) as f:
@@ -25,19 +25,21 @@ class CalibCeilingCamera:
 
         self.camera_id = 0
         cam_settings = {"width": 640, "height": 480, "fps": 30, "clipping_distance": 0.2}
-        # crop_settings = [{"crop_size": 300, "crop_center_x": 320, "crop_center_y": 240}]
+        
         crop_settings = False
+        crop_settings = [{"crop_size": 280, "crop_center_x": 320, "crop_center_y": 240}]
         self.cam = RealSense(**cam_settings, crop_settings=crop_settings)
+
         self.cameraMatrix = self.cam.cameraMatrix_woCrop[self.camera_id]
         self.distCoeffs = self.cam.distCoeffs[self.camera_id]
 
     def preprocess(self):
         marker_04 = self.b_t_t["04"]
         marker_09 = self.b_t_t["09"]
-        self.b_t_t["00"] = [marker_04[0]+0.05, marker_04[1]-0.05, marker_04[2]]
-        self.b_t_t["01"] = [marker_04[0]-0.05, marker_04[1]-0.05, marker_04[2]]
-        self.b_t_t["02"] = [marker_04[0]+0.05, marker_04[1]+0.05, marker_04[2]]
-        self.b_t_t["03"] = [marker_04[0]-0.05, marker_04[1]+0.05, marker_04[2]]
+        self.b_t_t["00"] = [ 0.175, -0.630, marker_04[2]]#[marker_04[0]+0.05, marker_04[1]-0.05, marker_04[2]]
+        self.b_t_t["01"] = [-0.150, -0.600, marker_04[2]]#[marker_04[0]-0.05, marker_04[1]-0.05, marker_04[2]]
+        self.b_t_t["02"] = [ 0.190, -0.320, marker_04[2]]#[marker_04[0]+0.05, marker_04[1]+0.05, marker_04[2]]
+        self.b_t_t["03"] = [-0.190, -0.340, marker_04[2]]#[marker_04[0]-0.05, marker_04[1]+0.05, marker_04[2]]
 
         self.b_t_t["05"] = [marker_09[0]+0.05, marker_09[1]-0.05, marker_09[2]]
         self.b_t_t["06"] = [marker_09[0]-0.05, marker_09[1]-0.05, marker_09[2]]
@@ -62,17 +64,21 @@ class CalibCeilingCamera:
                 gray_image, self.aruco_dict, parameters=self.arucoParams)
             
             c_R_t, c_t_t, _ = cv2.aruco.estimatePoseSingleMarkers(corners, self.marker_length, self.cameraMatrix, self.distCoeffs)
-            if ids is not None and len(ids) ==5:
+            
+            if ids is not None:# and len(ids) ==5:
                 b_R_t, b_t_t = [], []
                 c_R_t = []
+                imagePoints = []
+                objectPoints = []
                 for i, id in enumerate(ids):
                     b_t_t.append(self.b_t_t["{:02}".format(id[0])])
                     b_R_t.append(R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec())
                     # cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, c_R_t[i], c_t_t[i], 0.1)
-                    
                     rvec = R.from_euler("XYZ", [0, 180, 0], degrees=True).as_rotvec()
                     c_R_t.append(rvec)
                     cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, rvec, c_t_t[i], 0.1)
+                    imagePoints.append(corners[i][0].mean(axis=0).tolist())
+                    objectPoints.append(R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec().tolist())
             cv2.aruco.drawDetectedMarkers(color_image, corners, ids, (0,255,0))
             cv2.imshow('org', color_image)
 
@@ -80,21 +86,26 @@ class CalibCeilingCamera:
             key = cv2.waitKey(1)
             if key == 27: # ESC
                 break
+            
+        print("PNP")
+        print(cv2.solvePnP(np.array(objectPoints),  np.array(imagePoints), self.cameraMatrix, self.distCoeffs, flags=cv2.SOLVEPNP_EPNP))
+
 
         return np.squeeze(np.array(c_R_t)), np.squeeze(np.array(c_t_t)), np.array(b_R_t), np.array(b_t_t)
 
     def force_calib(self):
 
-        color_images, depth_images, _, _, frames = self.cam.get_image(crop=True, get_mask=False)
-        color_image = color_images[self.camera_id]
-        self.color_image_original = color_image.copy()
-        depth_image = depth_images[self.camera_id]
-        self.depth_image_original = depth_image.copy()
-
-        # depth_frame = frames.get_depth_frame()
-
         s_time = time.time()
         while time.time()-s_time<5:
+            color_images, depth_images, _, _, frames = self.cam.get_image(crop=True, get_mask=False)
+            color_image = color_images[self.camera_id]
+            self.color_image_original = color_image.copy()
+            depth_image = depth_images[self.camera_id]
+            self.depth_image_original = depth_image.copy()
+
+            # depth_frame = frames.get_depth_frame()
+
+        
             gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
             # Detect markers
             corners, ids, rejectedImgPoints = self.aruco.detectMarkers(
@@ -121,10 +132,21 @@ class CalibCeilingCamera:
 
         # check
         target_id = 3
-        diff_x = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[0]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[0]
-        diff_y = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[1]-corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[1]
+        diff_x = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[0] - corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[0]
+        diff_y = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[1] - corners[ids.ravel().tolist().index(center_id)][0].mean(axis=0)[1]
         X = self.b_t_t["{:02}".format(center_id)][0] + diff_x*ratio[0] 
         Y = self.b_t_t["{:02}".format(center_id)][1] - diff_y*ratio[1]
+        print("recall X:{}, Y:{}".format(X, Y))
+        print("actual X:{}, Y:{}".format(self.b_t_t["{:02}".format(target_id)][0], self.b_t_t["{:02}".format(target_id)][1]))
+
+        center_postion = [-0.015, -0.535]
+        # center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
+        center_pixels = [140, 140]  
+        diff_x = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[0] - center_pixels[0]
+        diff_y = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[1] - center_pixels[1]
+        X = center_postion[0] + diff_x*ratio[0]
+        Y = center_postion[1] - diff_y*ratio[1]
+        print("center_pixels", center_pixels)
         print("recall X:{}, Y:{}".format(X, Y))
         print("actual X:{}, Y:{}".format(self.b_t_t["{:02}".format(target_id)][0], self.b_t_t["{:02}".format(target_id)][1]))
 
@@ -134,10 +156,12 @@ class CalibCeilingCamera:
         self.tm = TransformManager()
 
         c_R_t, c_t_t, b_R_t, b_t_t = self.readARMarker()
-        # print(c_R_t[0], c_t_t[0], b_R_t[0], b_t_t[0])
+        print(c_R_t[0], c_t_t[0], b_R_t[0], b_t_t[0])
         self.register_pose(c_t_t[0], c_R_t[0], "cam", "target")
         self.register_pose(b_t_t[0], b_R_t[0], "base", "target")
         cam_in_base = self.get_pose("base", "cam")
+
+        
         print("camera_pose", cam_in_base)
         np.save("camera_pose.npy",cam_in_base)
         return cam_in_base
@@ -168,5 +192,5 @@ class CalibCeilingCamera:
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
     calib.calibration()
-    calib.force_calib()
+    # calib.force_calib()
     calib.cam.close()
