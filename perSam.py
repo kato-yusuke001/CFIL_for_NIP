@@ -485,12 +485,13 @@ class PerSAM:
         peaks_index = detect_peaks(sim.cpu().detach().numpy(), order=order, filter_size=filter_size)
         if save_sim:
             self.heatmap = sim_to_heatmap(sim)
+            plt.imshow(self.heatmap)
             for i in range(len(peaks_index[0])):
-                plt.imshow(self.heatmap)
                 plt.scatter(peaks_index[1][i], peaks_index[0][i], color='black', s=5)
                 plt.text(peaks_index[1][i],peaks_index[0][i], 'PEAK!!!', fontsize=9)
             plt.axis("off")
             plt.savefig("positon_detector_similarity.jpg")
+            plt.close()
         return peaks_index
 
 def sim_to_heatmap(sim):
