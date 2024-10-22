@@ -73,6 +73,12 @@ class RealSense:
             self.color_sensors[i].set_option(rs.option.enable_auto_exposure, 0)
             self.color_sensors[i].set_option(rs.option.exposure, exposure)
 
+    def get_frame(self):
+        frames = []
+        for i in range(self.rs_num):
+            frames = self.pipeline[i].wait_for_frames()        
+        return frames
+    
     def get_image(self, crop=False, get_mask=False):
         color_images, depth_images, mask_images, max_contours = [], [], [], []
         for i in range(self.rs_num):
@@ -106,7 +112,7 @@ class RealSense:
                 depth_images.append(depth_img)
                 mask_images.append(None)
                 max_contours.append(None)
-        return color_images, depth_images, mask_images, max_contours, frames
+        return color_images, depth_images, mask_images, max_contours
 
     def make_mask(self, depth_img):
         clip_img = (depth_img < self.clipping_distance) * depth_img
@@ -179,8 +185,7 @@ if __name__ == "__main__":
     # D405
     rs_settings = {
         "width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
-        "crop_settings": [{"crop_size": 224, "crop_center_x": 320, "crop_center_y": 240}]}
-
+        "crop_settings": [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]}
     # D435
     # rs_settings = {
     #     "width": 640, "height": 480, "fps": 60, "clipping_distance": 1.0,

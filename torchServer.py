@@ -308,7 +308,7 @@ class Agent:
             return False
         
     def get_positions_force(self):
-        color_images, depth_images, _, _, _ = self.cam.get_image(crop=True)
+        color_images, depth_images, _, _ = self.cam.get_image(crop=True)
         peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=60, order=0.7, save_sim=False)
         positions_X = []
         positions_Y = []
@@ -322,13 +322,14 @@ class Agent:
         return [positions_X, positions_Y, len(positions_X)]
     
     def get_positions(self):
-        color_images, depth_images, _, _, frames = self.cam.get_image(crop=True)
+        color_images, depth_images, _, _ = self.cam.get_image(crop=True)
+        frames = self.cam.get_frames()
         peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
         # xy の順番は要確認
         for i in range(len(peaks_pixels[0])):
-            depth_frame = frames.get_depth_frame()
+            depth_frame = frames[0].get_depth_frame()
             depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
             tvec = self.cam.get_point_from_pixel(peaks_pixels[1][i], peaks_pixels[0][i], depth)
             rvec = R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec()

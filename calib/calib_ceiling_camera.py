@@ -51,7 +51,7 @@ class CalibCeilingCamera:
         c_R_t, c_t_t, b_R_t, b_t_t = [], [], [], []
         s_time = time.time()
         while time.time()-s_time<5:
-            color_images, depth_images, _, _, _ = self.cam.get_image(crop=True, get_mask=False)
+            color_images, depth_images, _, _ = self.cam.get_image(crop=True, get_mask=False)
             color_image = color_images[self.camera_id]
             self.color_image_original = color_image.copy()
             depth_image = depth_images[self.camera_id]
@@ -97,7 +97,7 @@ class CalibCeilingCamera:
 
         s_time = time.time()
         while time.time()-s_time<5:
-            color_images, depth_images, _, _, frames = self.cam.get_image(crop=True, get_mask=False)
+            color_images, depth_images, _, _ = self.cam.get_image(crop=True, get_mask=False)
             color_image = color_images[self.camera_id]
             self.color_image_original = color_image.copy()
             depth_image = depth_images[self.camera_id]

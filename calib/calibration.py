@@ -77,7 +77,7 @@ class camera_caribration:
                     charuco_list.append(cam_T_center)
                 color = color_image
             else:
-                color_images, _, _, _ = self.charuco.cam.get_image(crop=False, get_mask=False)
+                color_images, _, _ = self.charuco.cam.get_image(crop=False, get_mask=False)
                 color = color_images[0]
             height = color.shape[0]
             width = color.shape[1]
