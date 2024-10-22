@@ -139,6 +139,7 @@ class RealSense:
             images = []
             for i in range(self.rs_num):
                 color_img = color_images[i]
+                original_color_img = color_img.copy()
                 depth_img = depth_images[i] / self.clipping_distance
                 depth_img = np.clip(depth_img, 0, 1)
                 depth_img = (depth_img * 255.).astype(np.uint8)
@@ -165,8 +166,13 @@ class RealSense:
                 height, width, _ = im.shape
                 im = cv2.resize(im, (int(width * scale), int(height * scale)))
             cv2.imshow('RealSense', im)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
                 break
+            elif key == ord('s'):
+                cv2.imwrite("realsense_image.jpg", original_color_img[y-s:y+s, x-s:x+s])
+                print("Save image.")
             dt = time.time() - before
             print("FPS:", 1/dt)
         cv2.destroyAllWindows()

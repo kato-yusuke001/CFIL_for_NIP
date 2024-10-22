@@ -309,10 +309,10 @@ class Agent:
         
     def get_positions_force(self):
         color_images, depth_images, _, _ = self.cam.get_image(crop=True)
-        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=60, order=0.7, save_sim=False)
+        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=30, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
-        # xy の順番は要確認
+        # xy の順番に注意
         for i in range(len(peaks_pixels[0])):
             X = self.center_postion[0] + (peaks_pixels[1][i] - self.center_pixels[0])*self.ratio[0]
             Y = self.center_postion[1] - (peaks_pixels[0][i] - self.center_pixels[1])*self.ratio[1]
@@ -327,7 +327,7 @@ class Agent:
         peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=100, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
-        # xy の順番は要確認
+        # xy の順番に注意
         for i in range(len(peaks_pixels[0])):
             depth_frame = frames[0].get_depth_frame()
             depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
