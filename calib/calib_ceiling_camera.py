@@ -16,7 +16,7 @@ class CalibCeilingCamera:
         self.aruco_dict = self.aruco.getPredefinedDictionary(self.aruco.DICT_6X6_250)        
         self.arucoParams = self.aruco.DetectorParameters()
 
-        self.marker_length = 0.08
+        self.marker_length = 0.04
 
         json_path = "./marker.json"
         with open(json_path) as f:
@@ -27,7 +27,7 @@ class CalibCeilingCamera:
         cam_settings = {"width": 640, "height": 480, "fps": 30, "clipping_distance": 0.2}
         
         crop_settings = False
-        crop_settings = [{"crop_size": 280, "crop_center_x": 320, "crop_center_y": 240}]
+        # crop_settings = [{"crop_size": 280, "crop_center_x": 320, "crop_center_y": 240}]
         self.cam = RealSense(**cam_settings, crop_settings=crop_settings)
 
         self.cameraMatrix = self.cam.cameraMatrix_woCrop[self.camera_id]
@@ -36,10 +36,14 @@ class CalibCeilingCamera:
     def preprocess(self):
         marker_04 = self.b_t_t["04"]
         marker_09 = self.b_t_t["09"]
-        self.b_t_t["00"] = [ 0.175, -0.630, marker_04[2]]#[marker_04[0]+0.05, marker_04[1]-0.05, marker_04[2]]
-        self.b_t_t["01"] = [-0.150, -0.600, marker_04[2]]#[marker_04[0]-0.05, marker_04[1]-0.05, marker_04[2]]
-        self.b_t_t["02"] = [ 0.190, -0.320, marker_04[2]]#[marker_04[0]+0.05, marker_04[1]+0.05, marker_04[2]]
-        self.b_t_t["03"] = [-0.190, -0.340, marker_04[2]]#[marker_04[0]-0.05, marker_04[1]+0.05, marker_04[2]]
+        self.b_t_t["00"] = [marker_04[0]+0.05, marker_04[1]-0.05, marker_04[2]]
+        self.b_t_t["01"] = [marker_04[0]-0.05, marker_04[1]-0.05, marker_04[2]]
+        self.b_t_t["02"] = [marker_04[0]+0.05, marker_04[1]+0.05, marker_04[2]]
+        self.b_t_t["03"] = [marker_04[0]-0.05, marker_04[1]+0.05, marker_04[2]]
+        # self.b_t_t["00"] = [ 0.175, -0.630, marker_04[2]]#[marker_04[0]+0.05, marker_04[1]-0.05, marker_04[2]]
+        # self.b_t_t["01"] = [-0.150, -0.600, marker_04[2]]#[marker_04[0]-0.05, marker_04[1]-0.05, marker_04[2]]
+        # self.b_t_t["02"] = [ 0.190, -0.320, marker_04[2]]#[marker_04[0]+0.05, marker_04[1]+0.05, marker_04[2]]
+        # self.b_t_t["03"] = [-0.190, -0.340, marker_04[2]]#[marker_04[0]-0.05, marker_04[1]+0.05, marker_04[2]]
 
         self.b_t_t["05"] = [marker_09[0]+0.05, marker_09[1]-0.05, marker_09[2]]
         self.b_t_t["06"] = [marker_09[0]-0.05, marker_09[1]-0.05, marker_09[2]]
@@ -76,7 +80,9 @@ class CalibCeilingCamera:
                     # cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, c_R_t[i], c_t_t[i], 0.1)
                     rvec = R.from_euler("XYZ", [0, 180, 0], degrees=True).as_rotvec()
                     c_R_t.append(rvec)
+                    # print(rvec, c_R_t[i])
                     cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, rvec, c_t_t[i], 0.1)
+                    # cv2.drawFrameAxes(color_image, self.cameraMatrix, self.distCoeffs, c_R_t[i], c_t_t[i], 0.1)
                     imagePoints.append(corners[i][0].mean(axis=0).tolist())
                     objectPoints.append(R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec().tolist())
             cv2.aruco.drawDetectedMarkers(color_image, corners, ids, (0,255,0))
@@ -157,7 +163,8 @@ class CalibCeilingCamera:
 
         c_R_t, c_t_t, b_R_t, b_t_t = self.readARMarker()
         print(c_R_t[0], c_t_t[0], b_R_t[0], b_t_t[0])
-        self.register_pose(c_t_t[0], c_R_t[0], "cam", "target")
+        # self.register_pose(c_t_t[0], c_R_t[0], "cam", "target")
+        self.register_pose(c_t_t[0], c_R_t[0], "target", "cam")
         self.register_pose(b_t_t[0], b_R_t[0], "base", "target")
         cam_in_base = self.get_pose("base", "cam")
 
@@ -192,5 +199,5 @@ class CalibCeilingCamera:
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
     calib.calibration()
-    # calib.force_calib()
+    calib.force_calib()
     calib.cam.close()

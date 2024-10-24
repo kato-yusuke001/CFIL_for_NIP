@@ -3,6 +3,8 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 
+tmp = 30
+
 class RealSense:
     def __init__(self, width=640, height=480, fps=30, clipping_distance=0.2, crop_settings={}):
         # detect devices
@@ -73,7 +75,7 @@ class RealSense:
             self.color_sensors[i].set_option(rs.option.enable_auto_exposure, 0)
             self.color_sensors[i].set_option(rs.option.exposure, exposure)
 
-    def get_frame(self):
+    def get_frames(self):
         frames = []
         for i in range(self.rs_num):
             frames = self.pipeline[i].wait_for_frames()        
@@ -99,8 +101,8 @@ class RealSense:
                 x = self.crop_settings[i]["crop_center_x"]
                 y = self.crop_settings[i]["crop_center_y"]
                 s = int(self.crop_settings[i]["crop_size"] / 2)
-                color_img = color_img[y-s:y+s, x-s:x+s]
-                depth_img = depth_img[y-s:y+s, x-s:x+s]
+                color_img = color_img[y-s+tmp:y+s-tmp, x-s:x+s]
+                depth_img = depth_img[y-s+tmp:y+s-tmp, x-s:x+s]
             if get_mask:
                 mask_img, max_cnt = self.make_mask(depth_img)
                 color_images.append(color_img)
@@ -152,8 +154,8 @@ class RealSense:
                     x = self.crop_settings[i]["crop_center_x"]
                     y = self.crop_settings[i]["crop_center_y"]
                     s = int(self.crop_settings[i]["crop_size"] / 2)
-                    cv2.rectangle(color_img, (x-s, y-s), (x+s, y+s), (0, 0, 255))
-                    cv2.rectangle(depth_img, (x-s, y-s), (x+s, y+s), (0, 0, 255))
+                    cv2.rectangle(color_img, (x-s, y-s+tmp), (x+s, y+s-tmp), (0, 0, 255))
+                    cv2.rectangle(depth_img, (x-s, y-s+tmp), (x+s, y+s-tmp), (0, 0, 255))
                 if get_mask:
                     mask_img = cv2.cvtColor(mask_images[i], cv2.COLOR_GRAY2BGR)
                     if not (max_contours[i] is None):
@@ -171,7 +173,7 @@ class RealSense:
             if key == ord('q'):
                 break
             elif key == ord('s'):
-                cv2.imwrite("realsense_image.jpg", original_color_img[y-s:y+s, x-s:x+s])
+                cv2.imwrite("realsense_image.jpg", original_color_img[y-s+tmp:y+s-tmp, x-s:x+s])
                 print("Save image.")
             dt = time.time() - before
             print("FPS:", 1/dt)
@@ -188,10 +190,17 @@ class RealSense:
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    # D405
+    # D405 nishikadoma
     rs_settings = {
         "width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
         "crop_settings": [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]}
+    
+    # D405  tsu
+    rs_settings = {
+        "width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
+        "crop_settings": [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]}
+    # D435
+
     # D435
     # rs_settings = {
     #     "width": 640, "height": 480, "fps": 60, "clipping_distance": 1.0,

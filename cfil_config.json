@@ -3,9 +3,7 @@
     "memory_size":5e4,
     "batch_size":32,
     "train_epochs":10000,
-    "train_data_file":"20241021_163122_697",
-    "(old)train_data_file":"20241008_151849_195",
-
+    "train_data_file":"20241008_114308_366",
     "use_sam":true,
     "sam_f":false
 }

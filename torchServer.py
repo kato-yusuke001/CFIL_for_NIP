@@ -27,8 +27,8 @@ cfil_agent = None
 position_detector = None
 
 # Flask設定
-# HOST = "192.168.11.3" #津の設定
-HOST = "192.168.11.54" #西門真設定
+HOST = "192.168.11.3" #津の設定
+# HOST = "192.168.11.54" #西門真設定
 PORT = 5000
 app = Flask(__name__)
 
@@ -173,7 +173,7 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    def loadSAMModel(self,image_path="CFIL_for_NIP\\train_data\\20241008_151849_195\\test_pd", model_path="CFIL_for_NIP\\train_data\\20241008_151849_195"):
+    def loadSAMModel(self,image_path="CFIL_for_NIP\\train_data\\20241021_163122_697\\test_pd", model_path="CFIL_for_NIP\\train_data\\20241021_163122_697"):
         try:
             from perSam import PerSAM
             print(image_path, model_path)
@@ -288,15 +288,23 @@ class Agent:
             self.tm = TransformManager()
             self.cam = None
         
+            # nishikadoma
             crop_settings = [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]
+            # D405  tsu
+            crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
+
             self.cam = RealSense(crop_settings=crop_settings)
 
             self.ratio = np.load("calib/camera_info/ratio.npy")
             # self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
-            self.center_pixels = [crop_settings[self.camera_id]["crop_size"]//2, crop_settings[self.camera_id]["crop_size"]//2]
-            self.center_postion = [-0.015, -0.535]
+            diff_center = crop_settings[self.camera_id]["crop_center_x"] - 320 
+            self.center_pixels = [crop_settings[self.camera_id]["crop_size"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size"]-60)//2]
+            
+            # self.center_postion = [-0.0809, -0.470]
+            self.center_postion = [-0.065, -0.470]
 
             self.camera_pose = np.load("calib/camera_info/camera_pose.npy")
+            
             self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
 
             self.per_sam.loadPositionDetector()
@@ -315,7 +323,7 @@ class Agent:
         # xy の順番に注意
         for i in range(len(peaks_pixels[0])):
             X = self.center_postion[0] + (peaks_pixels[1][i] - self.center_pixels[0])*self.ratio[0]
-            Y = self.center_postion[1] - (peaks_pixels[0][i] - self.center_pixels[1])*self.ratio[1]
+            Y = self.center_postion[1] - (peaks_pixels[0][i] - self.center_pixels[1])*self.ratio[1] 
             positions_X.append(X*1000) # m -> mm
             positions_Y.append(Y*1000) # m -> mm
 
@@ -329,7 +337,7 @@ class Agent:
         positions_Y = []
         # xy の順番に注意
         for i in range(len(peaks_pixels[0])):
-            depth_frame = frames[0].get_depth_frame()
+            depth_frame = frames[0].as_depth_frame()
             depth = depth_frame.get_distance(peaks_pixels[1][i], peaks_pixels[0][i])
             tvec = self.cam.get_point_from_pixel(peaks_pixels[1][i], peaks_pixels[0][i], depth)
             rvec = R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec()
@@ -371,7 +379,7 @@ class Agent:
         self.loadSAMModel()
         self.initialize_positionDetector()
         print(self.get_positions_force())
-        self.get_positions()
+        # self.get_positions()
 
 
 if __name__ == "__main__":
