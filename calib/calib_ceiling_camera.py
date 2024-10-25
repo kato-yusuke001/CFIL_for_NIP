@@ -27,7 +27,7 @@ class CalibCeilingCamera:
         cam_settings = {"width": 640, "height": 480, "fps": 30, "clipping_distance": 0.2}
         
         crop_settings = False
-        # crop_settings = [{"crop_size": 280, "crop_center_x": 320, "crop_center_y": 240}]
+        crop_settings = [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]
         self.cam = RealSense(**cam_settings, crop_settings=crop_settings)
 
         self.cameraMatrix = self.cam.cameraMatrix_woCrop[self.camera_id]
@@ -87,7 +87,7 @@ class CalibCeilingCamera:
                     objectPoints.append(R.from_euler("XYZ", [0, 0, 180], degrees=True).as_rotvec().tolist())
             cv2.aruco.drawDetectedMarkers(color_image, corners, ids, (0,255,0))
             cv2.imshow('org', color_image)
-
+            print(ids[0])
             # Escキーで終了
             key = cv2.waitKey(1)
             if key == 27: # ESC
@@ -145,13 +145,16 @@ class CalibCeilingCamera:
         print("recall X:{}, Y:{}".format(X, Y))
         print("actual X:{}, Y:{}".format(self.b_t_t["{:02}".format(target_id)][0], self.b_t_t["{:02}".format(target_id)][1]))
 
-        center_postion = [-0.015, -0.535]
+        center_position = [-0.015, -0.535]
+        # center_position = [-0.0809, -0.470]
+        # center_position = [-0.065, -0.470]
+
         # center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
-        center_pixels = [140, 140]  
+        center_pixels = [self.cam.crop_settings[self.camera_id]["crop_size"]//2, self.cam.crop_settings[self.camera_id]["crop_size"]//2]  
         diff_x = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[0] - center_pixels[0]
         diff_y = corners[ids.ravel().tolist().index(target_id)][0].mean(axis=0)[1] - center_pixels[1]
-        X = center_postion[0] + diff_x*ratio[0]
-        Y = center_postion[1] - diff_y*ratio[1]
+        X = center_position[0] + diff_x*ratio[0]
+        Y = center_position[1] - diff_y*ratio[1]
         print("center_pixels", center_pixels)
         print("recall X:{}, Y:{}".format(X, Y))
         print("actual X:{}, Y:{}".format(self.b_t_t["{:02}".format(target_id)][0], self.b_t_t["{:02}".format(target_id)][1]))

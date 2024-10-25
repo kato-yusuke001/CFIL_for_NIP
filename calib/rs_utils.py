@@ -3,7 +3,8 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 
-tmp = 30
+# tmp = 30
+tmp = 0
 
 class RealSense:
     def __init__(self, width=640, height=480, fps=30, clipping_distance=0.2, crop_settings={}):
@@ -21,6 +22,8 @@ class RealSense:
         else:
             self.crop_settings = [{
                 "crop_size": min(width, height),
+                "crop_size_x:": width,
+                "crop_size_y:": height,
                 "crop_center_x": int(width / 2),
                 "crop_center_y": int(height / 2)}] * self.rs_num
             print("##################################################")
@@ -45,8 +48,10 @@ class RealSense:
             self.color_intrinsics.append(rs.video_stream_profile(self.profile[i].get_stream(rs.stream.color)).get_intrinsics())
             self.depth_intrinsics.append(rs.video_stream_profile(self.profile[i].get_stream(rs.stream.depth)).get_intrinsics())
             print("color_intrinsics:", self.color_intrinsics[-1])
-            offset_x = self.crop_settings[i]["crop_center_x"] - self.crop_settings[i]["crop_size"] / 2
-            offset_y = self.crop_settings[i]["crop_center_y"] - self.crop_settings[i]["crop_size"] / 2
+            # offset_x = self.crop_settings[i]["crop_center_x"] - self.crop_settings[i]["crop_size"] / 2
+            # offset_y = self.crop_settings[i]["crop_center_y"] - self.crop_settings[i]["crop_size"] / 2
+            offset_x = self.crop_settings[i]["crop_center_x"] - self.crop_settings[i]["crop_size_x"] / 2
+            offset_y = self.crop_settings[i]["crop_center_y"] - self.crop_settings[i]["crop_size_y"] / 2
             self.cameraMatrix.append(
                 np.array([[self.color_intrinsics[-1].fx, 0., self.color_intrinsics[-1].ppx - offset_x],
                           [0., self.color_intrinsics[-1].fy, self.color_intrinsics[-1].ppy - offset_y],
@@ -100,9 +105,13 @@ class RealSense:
             if crop:
                 x = self.crop_settings[i]["crop_center_x"]
                 y = self.crop_settings[i]["crop_center_y"]
-                s = int(self.crop_settings[i]["crop_size"] / 2)
-                color_img = color_img[y-s+tmp:y+s-tmp, x-s:x+s]
-                depth_img = depth_img[y-s+tmp:y+s-tmp, x-s:x+s]
+                # s = int(self.crop_settings[i]["crop_size"] / 2)
+                # color_img = color_img[y-s+tmp:y+s-tmp, x-s:x+s]
+                # depth_img = depth_img[y-s+tmp:y+s-tmp, x-s:x+s]
+                s_x = int(self.crop_settings[i]["crop_size_x"] / 2)
+                s_y = int(self.crop_settings[i]["crop_size_y"] / 2)
+                color_img = color_img[y-s_y+tmp:y+s_y, x-s_x:x+s_x]
+                depth_img = depth_img[y-s_y+tmp:y+s_y, x-s_x:x+s_x]
             if get_mask:
                 mask_img, max_cnt = self.make_mask(depth_img)
                 color_images.append(color_img)
@@ -153,9 +162,13 @@ class RealSense:
                     # Draw crop area
                     x = self.crop_settings[i]["crop_center_x"]
                     y = self.crop_settings[i]["crop_center_y"]
-                    s = int(self.crop_settings[i]["crop_size"] / 2)
-                    cv2.rectangle(color_img, (x-s, y-s+tmp), (x+s, y+s-tmp), (0, 0, 255))
-                    cv2.rectangle(depth_img, (x-s, y-s+tmp), (x+s, y+s-tmp), (0, 0, 255))
+                    # s = int(self.crop_settings[i]["crop_size"] / 2)
+                    # cv2.rectangle(color_img, (x-s, y-s+tmp), (x+s, y+s-tmp), (0, 0, 255))
+                    # cv2.rectangle(depth_img, (x-s, y-s+tmp), (x+s, y+s-tmp), (0, 0, 255))
+                    s_x = int(self.crop_settings[i]["crop_size_x"] / 2)
+                    s_y = int(self.crop_settings[i]["crop_size_y"] / 2)
+                    cv2.rectangle(color_img, (x-s_x, y-s_y), (x+s_x, y+s_y), (0, 0, 255))
+                    cv2.rectangle(depth_img, (x-s_x, y-s_y), (x+s_x, y+s_y), (0, 0, 255))
                 if get_mask:
                     mask_img = cv2.cvtColor(mask_images[i], cv2.COLOR_GRAY2BGR)
                     if not (max_contours[i] is None):
@@ -173,7 +186,7 @@ class RealSense:
             if key == ord('q'):
                 break
             elif key == ord('s'):
-                cv2.imwrite("realsense_image.jpg", original_color_img[y-s+tmp:y+s-tmp, x-s:x+s])
+                cv2.imwrite("realsense_image.jpg", original_color_img[y-s_x+tmp:y+s_x-tmp, x-s_x:x+s_x])
                 print("Save image.")
             dt = time.time() - before
             print("FPS:", 1/dt)
@@ -193,13 +206,13 @@ if __name__ == "__main__":
     # D405 nishikadoma
     rs_settings = {
         "width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
-        "crop_settings": [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]}
+        "crop_settings": [{"crop_size_x": 280, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]}
     
     # D405  tsu
-    rs_settings = {
-        "width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
-        "crop_settings": [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]}
-    # D435
+    # rs_settings = {
+    #     "width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
+    #     "crop_settings": [{"crop_size_x": 260, crop_size_x": 200, "crop_center_x": 350, "crop_center_y": 240}]}
+    
 
     # D435
     # rs_settings = {

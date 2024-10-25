@@ -289,19 +289,27 @@ class Agent:
             self.cam = None
         
             # nishikadoma
-            crop_settings = [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]
+            crop_settings = [{"crop_size_x": 240, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]
             # D405  tsu
-            crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
+            # crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
 
             self.cam = RealSense(crop_settings=crop_settings)
 
             self.ratio = np.load("calib/camera_info/ratio.npy")
             # self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
             diff_center = crop_settings[self.camera_id]["crop_center_x"] - 320 
-            self.center_pixels = [crop_settings[self.camera_id]["crop_size"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size"]-60)//2]
-            
-            # self.center_postion = [-0.0809, -0.470]
-            self.center_postion = [-0.065, -0.470]
+            # self.center_pixels = [crop_settings[self.camera_id]["crop_size"]//2, crop_settings[self.camera_id]["crop_size"]//2]
+            self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size_y"])//2]
+            print(self.center_pixels)
+
+            #nishikadoma
+            # self.center_position = [-0.0809, -0.470]
+            self.center_position = [-0.010, -0.535]
+            # self.center_position = [-0.03, -0.5]
+
+
+            #tsu
+            # self.center_position = [-0.065, -0.470]
 
             self.camera_pose = np.load("calib/camera_info/camera_pose.npy")
             
@@ -322,8 +330,8 @@ class Agent:
         positions_Y = []
         # xy の順番に注意
         for i in range(len(peaks_pixels[0])):
-            X = self.center_postion[0] + (peaks_pixels[1][i] - self.center_pixels[0])*self.ratio[0]
-            Y = self.center_postion[1] - (peaks_pixels[0][i] - self.center_pixels[1])*self.ratio[1] 
+            X = self.center_position[0] + (peaks_pixels[1][i] - self.center_pixels[0])*self.ratio[0]
+            Y = self.center_position[1] - (peaks_pixels[0][i] - self.center_pixels[1])*self.ratio[1] 
             positions_X.append(X*1000) # m -> mm
             positions_Y.append(Y*1000) # m -> mm
 
