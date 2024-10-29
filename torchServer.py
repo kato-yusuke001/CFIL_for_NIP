@@ -173,7 +173,7 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    def loadSAMModel(self,image_path="CFIL_for_NIP\\train_data\\20241021_163122_697\\test_pd", model_path="CFIL_for_NIP\\train_data\\20241021_163122_697"):
+    def loadSAMModel(self,image_path="CFIL_for_NIP\\train_data\\20241025_151158_245\\test_pd", model_path="CFIL_for_NIP\\train_data\\20241025_151158_245"):
         try:
             from perSam import PerSAM
             print(image_path, model_path)
@@ -389,6 +389,12 @@ class Agent:
         print(self.get_positions_force())
         # self.get_positions()
 
+    def initialize_all(self):
+        self.initialize()
+        self.loadSAMModel()
+        # self.loadTrainedModel()
+        self.initialize_positionDetector()
+        return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -399,4 +405,5 @@ if __name__ == "__main__":
     if args.debug:
         cfil_agent.test_PD()
     else:
+        cfil_agent.initialize_all()
         app.run(debug=False, port=PORT, host=HOST)
