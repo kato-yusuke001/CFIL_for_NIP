@@ -4,9 +4,11 @@ print(os.getcwd())
 import logging
 import cv2
 import numpy as np
-from datetime import datetime
+from datetime
 from flask import Flask, request
 import torch
+
+import json
 
 from CFIL_for_NIP.memory import ApproachMemory
 from CFIL_for_NIP.network import ABN128, ABN256
@@ -159,7 +161,8 @@ class Agent:
 
             # self.file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
 
-            
+            self.train_data_file = None
+
             return True
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
@@ -167,7 +170,10 @@ class Agent:
              
     def loadTrainedModel(self, model_path):
         try:
-            self.cfil.load_state_dict(torch.load(os.path.join(model_path, "approach_model_final.pth"),map_location=self.device))
+            if self.train_data_file is None:
+                self.cfil.load_state_dict(torch.load(os.path.join(model_path, "approach_model_final.pth"),map_location=self.device))
+            else:
+                self.cfil.load_state_dict(torch.load(os.path.join("CFIL_for_NIP", "train_data", self.train_data_file, "approach_model_final.pth"),map_location=self.device))
             return True
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
@@ -177,7 +183,12 @@ class Agent:
         try:
             from perSam import PerSAM
             print(image_path, model_path)
-            self.output_path = os.path.join(*image_path.split("\\")[:-2], "output_images")
+            if self.train_data_file is None:
+                self.output_path = os.path.join(*image_path.split("\\")[:-2], "output_images")
+            else:
+                self.output_path = os.path.join("CFIL_for_NIP", "train_data", self.train_data_file, "test", format(datetime.date.today(), '%Y%m%d'), "output_images")
+            if not os.path.exists(self.output_path):
+                os.makedirs(self.output_path)
             self.per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(model_path, "ref"), 
@@ -391,10 +402,19 @@ class Agent:
 
     def initialize_all(self):
         self.initialize()
+        self.loadJson()
         self.loadSAMModel()
-        # self.loadTrainedModel()
+        self.loadTrainedModel()
         self.initialize_positionDetector()
         return True
+
+    def loadJson(self, path="cfil_config.json"):
+        with open(path, "r") as f:
+            json_dict = json.load(f)
+
+        self.train_data_file = json_dict["train_data_file"]
+        return json_dict
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
