@@ -82,13 +82,30 @@ class RobotConnect(RobotClient):
             dashboard.connect()
             print("dashboard connected")
             # if(dashboard.isConnected()):
+            #     dashboard.closeSafetyPopup()
+            #     dashboard.restartSafety()
             #     dashboard.powerOn()
             #     dashboard.brakeRelease()
             #     dashboard.unlockProtectiveStop()
-            if(rtde_c is None): rtde_c = RTDEControlInterface(ROBOT_IP)
-            print("rtde_c connected")
+            #     dashboard.play()
             if(rtde_r is None): rtde_r = RTDEReceiveInterface(ROBOT_IP)
             print("rtde_r connected")
+            print("Safety Mode", rtde_r.getSafetyMode())
+            print("Robot Status", rtde_r.getRobotStatus())
+            if(dashboard.isConnected()):
+                dashboard.closeSafetyPopup()
+                dashboard.powerOn()
+                while(rtde_r.getRobotMode() != 5 and rtde_r.getRobotMode() != 7):
+                    print(" Power on ...")
+                    time.sleep(1)
+                dashboard.brakeRelease()
+                while(rtde_r.getRobotMode() != 7):
+                    print(" break release ...")
+                    time.sleep(1)
+                dashboard.stop()
+
+            if(rtde_c is None): rtde_c = RTDEControlInterface(ROBOT_IP)
+            print("rtde_c connected")
             if(io is None): io = RTDEIOInterface(ROBOT_IP)
             print("io connected")
             if(gripper is not None):
@@ -111,8 +128,10 @@ class RobotConnect(RobotClient):
             return solution.judge_pass()
         except Exception as e:
             # 全ての種類のエラーを取得
+            print("Robot Connection is failed !")
             print(type(e), e)
             logging.error("{} : {}".format(type(e), e))
+            dashboard.disconnect()
             return solution.judge_fail()
 
 # 通信終了
