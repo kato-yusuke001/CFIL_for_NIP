@@ -5,8 +5,7 @@
 *.pth
 *.pt
 *.npy
-*.png
-*.jpg
+sam/results/
 __pycache__
 CFIL_for_NIP/train_data
 image.jpg
