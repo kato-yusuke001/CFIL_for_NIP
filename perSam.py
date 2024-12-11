@@ -1,0 +1,580 @@
+from per_segment_anything import sam_model_registry, SamPredictor
+# from sam.predictor import SamPredictor
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+from tqdm import tqdm
+from sam.show import *
+from scipy.ndimage import maximum_filter
+
+# annotation_path: 参照画像が格納されているフォルダ名
+# test_images_path: セグメンテーションしたい画像が格納されているフォルダ名（画像のファイル名は00.png、01.pngのような命名規則）
+# output_path: セグメンテーション結果を格納するフォルダ名
+
+class PerSAM:
+    def __init__(self, annotation_path="sam\\ref", 
+                 output_path="sam\\results"):
+        self.annotation_path = annotation_path
+        self.output_path = output_path
+
+
+    def point_selection(self, mask_sim, topk=1):
+        # Top-1 point selection
+        w, h = mask_sim.shape
+        topk_xy = mask_sim.flatten(0).topk(topk)[1]
+        topk_x = (topk_xy // h).unsqueeze(0)
+        topk_y = (topk_xy - topk_x * h)
+        topk_xy = torch.cat((topk_y, topk_x), dim=0).permute(1, 0)
+        topk_label = np.array([1] * topk)
+        topk_xy = topk_xy.cpu().numpy()
+            
+        # Top-last point selection
+        last_xy = mask_sim.flatten(0).topk(topk, largest=False)[1]
+        last_x = (last_xy // h).unsqueeze(0)
+        last_y = (last_xy - last_x * h)
+        last_xy = torch.cat((last_y, last_x), dim=0).permute(1, 0)
+        last_label = np.array([0] * topk)
+        last_xy = last_xy.cpu().numpy()
+        
+        return topk_xy, topk_label, last_xy, last_label
+
+    def loadSAM(self):
+        ref_image_path = os.path.join(self.annotation_path, 'original.jpg') #参照用の元画像
+        ref_mask_path = os.path.join(self.annotation_path, 'mask.jpg') #参照用の元マスク画像
+        os.makedirs(self.output_path, exist_ok=True)
+
+        # Load images and masks
+        ref_image = cv2.imread(ref_image_path)
+        ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
+        ref_mask = cv2.imread(ref_mask_path)
+        ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
+        print(ref_image.shape, ref_mask.shape)
+        print("======> Load SAM" )
+        sam_type, sam_ckpt = 'vit_h', 'sam\\sam_vit_h.pth' #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_l', 'sam\\sam_vit_l.pth' #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_b', 'sam\\sam_vit_b.pth' #学習済みモデルを指定
+        
+        sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
+        sam.eval()
+        self.predictor = SamPredictor(sam)
+        print("======> Obtain Location Prior" )
+        # Image features encoding
+        ref_mask = self.predictor.set_image(ref_image, ref_mask)
+        ref_feat = self.predictor.features.squeeze().permute(1, 2, 0)
+        ref_mask = F.interpolate(ref_mask, size=ref_feat.shape[0: 2], mode="bilinear")
+        ref_mask = ref_mask.squeeze()[0]
+        # # Target feature extraction
+        # self.target_feat = ref_feat[ref_mask > 0]
+        # self.target_embedding = self.target_feat.mean(0).unsqueeze(0)
+        # self.target_feat = self.target_embedding / self.target_embedding.norm(dim=-1, keepdim=True)
+        # self.target_embedding = self.target_embedding.unsqueeze(0)
+
+        # Target feature extraction(PerSam)
+        self.target_feat = ref_feat[ref_mask > 0]
+        self.target_embedding = self.target_feat.mean(0).unsqueeze(0).unsqueeze(0)
+        self.target_feat_mean = self.target_feat.mean(0)
+        self.target_feat_max = torch.max(self.target_feat, dim=0)[0]
+        self.target_feat = (self.target_feat_max / 2 + self.target_feat_mean / 2).unsqueeze(0)
+    
+    
+    def executePerSAM(self, test_image, show_heatmap=False):             
+        # Image feature encoding
+        self.predictor.set_image(test_image)
+        test_feat = self.predictor.features.squeeze()
+        # Cosine similarity
+        C, h, w = test_feat.shape
+        test_feat = test_feat / test_feat.norm(dim=0, keepdim=True)
+        test_feat = test_feat.reshape(C, h * w)
+        sim = self.target_feat @ test_feat
+        sim = sim.reshape(1, 1, h, w)
+        sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
+        sim = self.predictor.model.postprocess_masks(
+                        sim,
+                        input_size=self.predictor.input_size,
+                        original_size=self.predictor.original_size).squeeze()
+        
+        if show_heatmap:
+            self.heatmap = sim_to_heatmap(sim)
+
+        # Positive-negative location prior
+        topk_xy_i, topk_label_i, last_xy_i, last_label_i = self.point_selection(sim, topk=1)
+        topk_xy = np.concatenate([topk_xy_i, last_xy_i], axis=0)
+        topk_label = np.concatenate([topk_label_i, last_label_i], axis=0)
+        # Obtain the target guidance for cross-attention layers
+        sim = (sim - sim.mean()) / torch.std(sim)
+        sim = F.interpolate(sim.unsqueeze(0).unsqueeze(0), size=(64, 64), mode="bilinear")
+        attn_sim = sim.sigmoid_().unsqueeze(0).flatten(3)
+        # First-step prediction
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy, 
+            point_labels=topk_label, 
+            multimask_output=False,
+            attn_sim=attn_sim,  # Target-guided Attention
+            target_embedding=self.target_embedding  # Target-semantic Prompting
+        )
+        best_idx = 0
+        # Cascaded Post-refinement-1
+        masks, scores, logits, _ = self.predictor.predict(
+                    point_coords=topk_xy,
+                    point_labels=topk_label,
+                    mask_input=logits[best_idx: best_idx + 1, :, :], 
+                    multimask_output=True)
+        best_idx = np.argmax(scores)
+        # Cascaded Post-refinement-2
+        y, x = np.nonzero(masks[best_idx])
+        x_min = x.min()
+        x_max = x.max()
+        y_min = y.min()
+        y_max = y.max()
+        input_box = np.array([x_min, y_min, x_max, y_max])
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy,
+            point_labels=topk_label,
+            box=input_box[None, :],
+            mask_input=logits[best_idx: best_idx + 1, :, :], 
+            multimask_output=True)
+        best_idx = np.argmax(scores)
+
+        return masks, best_idx, topk_xy, topk_label       
+    
+    def save_masked_image(self, final_mask, test_image, name, output=True):
+        mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
+        mask_colors[final_mask, :] = test_image[final_mask, :]
+        if output:
+            cv2.imwrite(os.path.join(self.output_path, name), mask_colors)
+        return mask_colors
+    
+    def save_randomback_image(self, final_mask, test_image, name):
+        mask_colors = np.random.randint(0, 255, (final_mask.shape[0], final_mask.shape[1], 3))
+        mask_colors[final_mask, :] = test_image[final_mask, :]
+        cv2.imwrite(os.path.join(self.output_path, name), mask_colors)
+        return mask_colors
+    
+    def save_randomfig_image(self, final_mask, test_image, name):
+        mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
+        for i in range(40):
+            cv2.rectangle(mask_colors, np.random.randint(0,256,2).tolist(), np.random.randint(0,256,2).tolist(), np.random.randint(0,255,3).tolist())
+            cv2.circle(mask_colors, np.random.randint(0,256,2).tolist(), np.random.randint(1,100), np.random.randint(0,255,3).tolist())
+        mask_colors[final_mask, :] = test_image[final_mask, :]
+        cv2.imwrite(os.path.join(self.output_path, name), mask_colors)
+        return mask_colors
+
+    def save_masks(self, masks, best_idx, test_image, topk_xy, topk_label, test_idx):
+        # Save masks
+        plt.figure(figsize=(10, 10))
+        plt.imshow(test_image)
+        show_mask(masks[best_idx], plt.gca())
+        show_points(topk_xy, topk_label, plt.gca())
+        plt.title(f"Mask {best_idx}", fontsize=18)
+        plt.axis('off')
+        vis_mask_output_path = os.path.join(self.output_path, f'vis_mask_{test_idx}.jpg')
+        with open(vis_mask_output_path, 'wb') as outfile:
+            plt.savefig(outfile, format='jpg')
+        final_mask = masks[best_idx]
+        mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
+        mask_colors[final_mask, :] = np.array([[0, 0, 128]])
+        mask_output_path = os.path.join(self.output_path, "mask_" + test_idx + '.png')
+        cv2.imwrite(mask_output_path, mask_colors)
+
+        mask_colors = np.zeros((test_image.shape[0], test_image.shape[1], 3), dtype=np.uint8)
+        mask_colors[final_mask, :] = test_image[final_mask, :]
+        cv2.imwrite(os.path.join(self.output_path, test_idx + '.png'), mask_colors)
+        return mask_colors
+
+
+    def testPerSAM(self, test_images_path="CFIL_for_NIP\\train_data\\20240917_182254_514\\image\\"):
+        print('======> Start Testing')
+        for test_idx in tqdm(range(len(os.listdir(test_images_path)))):
+            test_idx = '%04d' % test_idx
+            test_image_path = test_images_path + 'image_' + test_idx + '.jpg'
+            test_image = cv2.imread(test_image_path)
+            test_image = cv2.resize(test_image, (256,256), interpolation=cv2.INTER_CUBIC)
+            test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
+            masks, best_idx, topk_xy, topk_label = self.executePerSAM(test_image)
+            
+            self.save_masks(masks, best_idx, test_image, topk_xy, topk_label, test_idx)
+
+    def loadSAM_f(self):
+        ref_image_path = os.path.join(self.annotation_path, 'original.jpg') #参照用の元画像
+        ref_mask_path = os.path.join(self.annotation_path, 'mask.jpg') #参照用の元マスク画像
+        os.makedirs(self.output_path, exist_ok=True)
+
+        # Load images and masks
+        ref_image = cv2.imread(ref_image_path)
+        ref_image = cv2.resize(ref_image,None,fx=0.1,fy=0.1)
+        ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
+        ref_mask = cv2.imread(ref_mask_path)
+        ref_mask = cv2.resize(ref_mask,None,fx=0.1,fy=0.1)
+        ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
+        gt_mask = torch.tensor(ref_mask)[:, :, 0] > 0 
+        gt_mask = gt_mask.float().unsqueeze(0).flatten(1).cuda()
+
+        print("======> Load SAM" )
+        # sam_type, sam_ckpt = 'vit_h', 'sam\\sam_vit_h.pth' #学習済みモデルを指定
+        sam_type, sam_ckpt = 'vit_t', 'sam\\mobile_sam.pt' #学習済みモデルを指定
+        sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
+        sam.eval()
+        self.predictor = SamPredictor(sam)
+
+        print("======> Obtain Location Prior" )
+        # Image features encoding
+        ref_mask = self.predictor.set_image(ref_image, ref_mask)
+        ref_feat = self.predictor.features.squeeze().permute(1, 2, 0)
+        ref_mask = F.interpolate(ref_mask, size=ref_feat.shape[0: 2], mode="bilinear")
+        ref_mask = ref_mask.squeeze()[0]
+        
+        # Target feature extraction
+        self.target_feat = ref_feat[ref_mask > 0]
+        target_feat_mean = self.target_feat.mean(0)
+        target_feat_max = torch.max(self.target_feat, dim=0)[0]
+        self.target_feat = (target_feat_max / 2 + target_feat_mean / 2).unsqueeze(0)
+
+        # Cosine similarity
+        h, w, C = ref_feat.shape
+        self.target_feat = self.target_feat / self.target_feat.norm(dim=-1, keepdim=True)
+        ref_feat = ref_feat / ref_feat.norm(dim=-1, keepdim=True)
+        ref_feat = ref_feat.permute(2, 0, 1).reshape(C, h * w)
+        sim = self.target_feat @ ref_feat
+
+        sim = sim.reshape(1, 1, h, w)
+        sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
+        sim = self.predictor.model.postprocess_masks(
+                        sim,
+                        input_size=self.predictor.input_size,
+                        original_size=self.predictor.original_size).squeeze()
+
+        # Positive location prior
+        topk_xy, topk_label = self.point_selection_f(sim, topk=1)
+
+
+        print('======> Start Training')
+        lr = 1e-3
+        train_epoch = 1000
+        log_epoch = 200
+        # Learnable mask weights
+        mask_weights = Mask_Weights().cuda()
+        mask_weights.train()
+
+        optimizer = torch.optim.AdamW(mask_weights.parameters(), lr=lr, eps=1e-4)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, train_epoch)
+
+        for train_idx in range(train_epoch):
+
+            # Run the decoder
+            masks, scores, logits, logits_high = self.predictor.predict(
+                point_coords=topk_xy,
+                point_labels=topk_label,
+                multimask_output=True)
+            logits_high = logits_high.flatten(1)
+
+            # Weighted sum three-scale masks
+            weights = torch.cat((1 - mask_weights.weights.sum(0).unsqueeze(0), mask_weights.weights), dim=0)
+            logits_high = logits_high * weights
+            logits_high = logits_high.sum(0).unsqueeze(0)
+
+            dice_loss = self.calculate_dice_loss(logits_high, gt_mask)
+            focal_loss = self.calculate_sigmoid_focal_loss(logits_high, gt_mask)
+            loss = dice_loss + focal_loss
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+            if train_idx % log_epoch == 0:
+                print('Train Epoch: {:} / {:}'.format(train_idx, train_epoch))
+                current_lr = scheduler.get_last_lr()[0]
+                print('LR: {:.6f}, Dice_Loss: {:.4f}, Focal_Loss: {:.4f}'.format(current_lr, dice_loss.item(), focal_loss.item()))
+
+
+        mask_weights.eval()
+        self.weights = torch.cat((1 - mask_weights.weights.sum(0).unsqueeze(0), mask_weights.weights), dim=0)
+        self.weights_np = self.weights.detach().cpu().numpy()
+        print('======> Mask weights:\n', self.weights_np)
+
+    def point_selection_f(self, mask_sim, topk=1):
+        # Top-1 point selection
+        w, h = mask_sim.shape
+        topk_xy = mask_sim.flatten(0).topk(topk)[1]
+        topk_x = (topk_xy // h).unsqueeze(0)
+        topk_y = (topk_xy - topk_x * h)
+        topk_xy = torch.cat((topk_y, topk_x), dim=0).permute(1, 0)
+        topk_label = np.array([1] * topk)
+        topk_xy = topk_xy.cpu().numpy()
+        
+        return topk_xy, topk_label
+
+
+    def calculate_dice_loss(self, inputs, targets, num_masks = 1):
+        """
+        Compute the DICE loss, similar to generalized IOU for masks
+        Args:
+            inputs: A float tensor of arbitrary shape.
+                    The predictions for each example.
+            targets: A float tensor with the same shape as inputs. Stores the binary
+                    classification label for each element in inputs
+                    (0 for the negative class and 1 for the positive class).
+        """
+        inputs = inputs.sigmoid()
+        inputs = inputs.flatten(1)
+        numerator = 2 * (inputs * targets).sum(-1)
+        denominator = inputs.sum(-1) + targets.sum(-1)
+        loss = 1 - (numerator + 1) / (denominator + 1)
+        return loss.sum() / num_masks
+
+
+    def calculate_sigmoid_focal_loss(self, inputs, targets, num_masks = 1, alpha: float = 0.25, gamma: float = 2):
+        """
+        Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
+        Args:
+            inputs: A float tensor of arbitrary shape.
+                    The predictions for each example.
+            targets: A float tensor with the same shape as inputs. Stores the binary
+                    classification label for each element in inputs
+                    (0 for the negative class and 1 for the positive class).
+            alpha: (optional) Weighting factor in range (0,1) to balance
+                    positive vs negative examples. Default = -1 (no weighting).
+            gamma: Exponent of the modulating factor (1 - p_t) to
+                balance easy vs hard examples.
+        Returns:
+            Loss tensor
+        """
+        prob = inputs.sigmoid()
+        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+        p_t = prob * targets + (1 - prob) * (1 - targets)
+        loss = ce_loss * ((1 - p_t) ** gamma)
+
+        if alpha >= 0:
+            alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+            loss = alpha_t * loss
+
+        return loss.mean(1).sum() / num_masks
+    
+    def executePerSAM_f(self, test_image, show_heatmap=False):             
+        # Image feature encoding
+        self.predictor.set_image(test_image)
+        test_feat = self.predictor.features.squeeze()
+        # Cosine similarity
+        C, h, w = test_feat.shape
+        test_feat = test_feat / test_feat.norm(dim=0, keepdim=True)
+        test_feat = test_feat.reshape(C, h * w)
+        sim = self.target_feat @ test_feat
+        sim = sim.reshape(1, 1, h, w)
+        sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
+        sim = self.predictor.model.postprocess_masks(
+                        sim,
+                        input_size=self.predictor.input_size,
+                        original_size=self.predictor.original_size).squeeze()
+        
+        if show_heatmap:
+            self.heatmap = sim_to_heatmap(sim)
+        
+        # Positive-negative location prior
+        topk_xy, topk_label = self.point_selection_f(sim, topk=1)
+        
+        # Obtain the target guidance for cross-attention layers
+        sim = (sim - sim.mean()) / torch.std(sim)
+        sim = F.interpolate(sim.unsqueeze(0).unsqueeze(0), size=(64, 64), mode="bilinear")
+        attn_sim = sim.sigmoid_().unsqueeze(0).flatten(3)
+        
+        # First-step prediction
+        masks, scores, logits, logits_high = self.predictor.predict(
+                    point_coords=topk_xy,
+                    point_labels=topk_label,
+                    multimask_output=True)
+        
+        # Weighted sum three-scale masks
+        logits_high = logits_high * self.weights.unsqueeze(-1)
+        logit_high = logits_high.sum(0)
+        mask = (logit_high > 0).detach().cpu().numpy()
+
+        logits = logits * self.weights_np[..., None]
+        logit = logits.sum(0)
+
+
+        # Cascaded Post-refinement-1
+        y, x = np.nonzero(mask)
+        x_min = x.min()
+        x_max = x.max()
+        y_min = y.min()
+        y_max = y.max()
+        input_box = np.array([x_min, y_min, x_max, y_max])
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy,
+            point_labels=topk_label,
+            box=input_box[None, :],
+            mask_input=logit[None, :, :],
+            multimask_output=True)
+        best_idx = np.argmax(scores)
+
+        # Cascaded Post-refinement-2
+        y, x = np.nonzero(masks[best_idx])
+        x_min = x.min()
+        x_max = x.max()
+        y_min = y.min()
+        y_max = y.max()
+        input_box = np.array([x_min, y_min, x_max, y_max])
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy,
+            point_labels=topk_label,
+            box=input_box[None, :],
+            mask_input=logits[best_idx: best_idx + 1, :, :],
+            multimask_output=True)
+        best_idx = np.argmax(scores)
+        
+        return masks, best_idx, topk_xy, topk_label
+    
+    def save_heatmap(self, name):
+        cv2.imwrite(os.path.join(self.output_path, name), cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))
+    
+
+    def loadPositionDetector(self):
+        # Load images and masks
+        ref_image_path = os.path.join(self.annotation_path+"_pd", 'original.jpg') #参照用の元画像
+        ref_mask_path = os.path.join(self.annotation_path+"_pd", 'mask.jpg') #参照用の元マスク画像
+        ref_image = cv2.imread(ref_image_path)
+        ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
+        ref_mask = cv2.imread(ref_mask_path)
+        ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
+
+        print("======> Obtain Location Prior" )
+        # Image features encoding
+        ref_mask = self.predictor.set_image(ref_image, ref_mask)
+        ref_feat = self.predictor.features.squeeze().permute(1, 2, 0)
+        ref_mask = F.interpolate(ref_mask, size=ref_feat.shape[0: 2], mode="bilinear")
+        ref_mask = ref_mask.squeeze()[0]
+        # # Target feature extraction
+        # self.target_feat = ref_feat[ref_mask > 0]
+        # self.target_embedding = self.target_feat.mean(0).unsqueeze(0)
+        # self.target_feat = self.target_embedding / self.target_embedding.norm(dim=-1, keepdim=True)
+        # self.target_embedding = self.target_embedding.unsqueeze(0)
+
+        # Target feature extraction(PerSam)
+        self.target_feat_pd = ref_feat[ref_mask > 0]
+        self.target_embedding_pd = self.target_feat_pd.mean(0).unsqueeze(0).unsqueeze(0)
+        self.target_feat_mean_pd = self.target_feat_pd.mean(0)
+        self.target_feat_max_pd = torch.max(self.target_feat_pd, dim=0)[0]
+        self.target_feat_pd = (self.target_feat_max_pd / 2 + self.target_feat_mean_pd / 2).unsqueeze(0)
+
+    def getSimirality(self, test_image, save_sim=False):
+        # Image feature encoding
+        self.predictor.set_image(test_image)
+        test_feat = self.predictor.features.squeeze()
+        # Cosine similarity
+        C, h, w = test_feat.shape
+        test_feat = test_feat / test_feat.norm(dim=0, keepdim=True)
+        test_feat = test_feat.reshape(C, h * w)
+        sim = self.target_feat_pd @ test_feat
+        sim = sim.reshape(1, 1, h, w)
+        sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
+        sim = self.predictor.model.postprocess_masks(
+                        sim,
+                        input_size=self.predictor.input_size,
+                        original_size=self.predictor.original_size).squeeze()
+        if save_sim:
+            self.heatmap = sim_to_heatmap(sim)
+            self.save_heatmap("positon_detector_similarity.jpg")
+        return sim
+    
+    def getPeaks(self, test_image, filter_size=100, order=0.7, save_sim=False):
+        sim = self.getSimirality(test_image)
+        peaks_index = detect_peaks(sim.cpu().detach().numpy(), order=order, filter_size=filter_size)
+        if save_sim:
+            self.heatmap = sim_to_heatmap(sim)
+            # plt.imshow(self.heatmap)
+            for i in range(len(peaks_index[0])):
+                cv2.circle(self.heatmap, (peaks_index[1][i], peaks_index[0][i]), radius=3, color=(0, 0, 0), thickness=-1)
+                cv2.putText(self.heatmap, 'PEAK!!!', (peaks_index[1][i], peaks_index[0][i]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)    
+                # plt.scatter(peaks_index[1][i], peaks_index[0][i], color='black', s=5)
+                # plt.text(peaks_index[1][i],peaks_index[0][i], 'PEAK!!!', fontsize=9)
+            # plt.axis("off")
+            # plt.savefig("positon_detector_similarity.jpg")
+            # plt.close()
+            cv2.imwrite("positon_detector_similarity.jpg", cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))   
+        return peaks_index
+
+def sim_to_heatmap(sim):
+    if torch.is_tensor(sim):
+        x = sim.to("cpu").detach().numpy().copy()
+    else:
+        x = sim.copy()
+    h, w = x.shape
+    x = (x - np.min(x)) / (np.max(x) - np.min(x))
+    x = (x * 255).reshape(-1)
+    cm = plt.get_cmap("jet")
+    x = np.array([cm(int(np.round(xi)))[:3] for xi in x])
+    return (x * 255).astype(np.uint8).reshape(h, w, 3)
+
+class Mask_Weights(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weights = nn.Parameter(torch.ones(2, 1, requires_grad=True) / 3)
+
+
+# ピーク検出関数
+def detect_peaks(image, filter_size=3, order=0.5):
+    local_max = maximum_filter(image, footprint=np.ones((filter_size, filter_size)), mode='constant')
+    detected_peaks = np.ma.array(image, mask=~(image == local_max))
+
+    # 小さいピーク値を排除（最大ピーク値のorder倍のピークは排除）
+    temp = np.ma.array(detected_peaks, mask=~(detected_peaks >= detected_peaks.max() * order))
+    peaks_index = np.where((temp.mask != True))
+    return peaks_index
+
+def camera_demo():
+    import cv2
+    perSam = PerSAM(annotation_path="sam\\ref2")
+    perSam.loadSAM_f()
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920) # カメラ画像の横幅を設定
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080) # カメラ画像の縦幅を設定
+
+    crop_x = [200, 1220]
+    crop_y = [150, 950]
+    # crop_x = [400, 600]
+    # crop_y = [200, 400]
+
+    #OpenCVのタイマーの準備
+    timer = cv2.TickMeter()
+    timer.start()
+
+    #各変数の初期値設定
+    count = 0
+    max_count =30
+    fps = 0
+
+
+    while True:
+        ret, frame = cap.read()
+        # frame = cv2.resize(frame, (1000, 600))
+        frame = frame[crop_y[0]:crop_y[1], crop_x[0]:crop_x[1]]
+        masks, best_idx, topk_xy, topk_label = perSam.executePerSAM_f(frame, show_heatmap=False)
+        frame = perSam.save_masked_image(masks[best_idx], frame, "test.jpg", output=False)
+        # perSam.save_heatmap("similarity.jpg")
+        if count == max_count:
+            timer.stop()
+            fps = max_count / timer.getTimeSec()
+            print("FPS(Actual):" , '{:11.02f}'.format(fps))        
+            #リセットと再スタート
+            timer.reset()
+            count = 0
+            timer.start()
+        count += 1
+        cv2.imshow("Web Camera movie", frame)
+        
+        i = cv2.waitKey(1)
+        if i == 27 or i == 13: # presss "ESC or Enter" to exit
+            cv2.imwrite("test.jpg", frame)
+            break
+
+
+if __name__ == "__main__":
+    # perSam = PerSAM()
+    # perSam.loadSAM()
+    # perSam.testPerSAM()
+
+    camera_demo()
