@@ -59,6 +59,8 @@ gripper = None
 dashboard = None
 io = None
 
+TIMEOUT = 15
+
 class RobotClient(metaclass=abc.ABCMeta):
     # 初期化処理
     def initialize(self, directory):
@@ -81,13 +83,7 @@ class RobotConnect(RobotClient):
             dashboard = DashboardClient(ROBOT_IP)
             dashboard.connect()
             print("dashboard connected")
-            # if(dashboard.isConnected()):
-            #     dashboard.closeSafetyPopup()
-            #     dashboard.restartSafety()
-            #     dashboard.powerOn()
-            #     dashboard.brakeRelease()
-            #     dashboard.unlockProtectiveStop()
-            #     dashboard.play()
+           
             if(rtde_r is None): rtde_r = RTDEReceiveInterface(ROBOT_IP)
             print("rtde_r connected")
             print("Safety Mode", rtde_r.getSafetyMode())
@@ -95,13 +91,25 @@ class RobotConnect(RobotClient):
             if(dashboard.isConnected()):
                 dashboard.closeSafetyPopup()
                 dashboard.powerOn()
+                s_time = time.time()
                 while(rtde_r.getRobotMode() != 5 and rtde_r.getRobotMode() != 7):
                     print(" Power on ...")
                     time.sleep(1)
+                    if(time.time()-s_time > 30):
+                        comment = "Failed to power on robot"
+                        print(comment)
+                        logging.error("{}".format(comment))
+                        return solution.judge_fail()
                 dashboard.brakeRelease()
+                s_time = time.time()
                 while(rtde_r.getRobotMode() != 7):
                     print(" break release ...")
                     time.sleep(1)
+                    if(time.time()-s_time > 30):
+                        comment = "Failed to release brake"
+                        print(comment)
+                        logging.error("{}".format(comment))
+                        return solution.judge_fail()
                 dashboard.stop()
 
             if(rtde_c is None): rtde_c = RTDEControlInterface(ROBOT_IP)
@@ -208,8 +216,10 @@ class WakeupRobot(RobotClient):
                 s_time = time.time()
                 while(rtde_r.getRobotStatus()!=3):
                     if(time.time()-s_time > 30):
-                        print("Failed to wakeup robot")
                         set_variable(solution, "Servo_On", 0)
+                        comment = "Failed to wakeup robot"
+                        print(comment)
+                        logging.error("{}".format(comment))
                         return solution.judge_fail()
                     print(rtde_r.getRobotStatus(), rtde_r.getSafetyMode())
                     rtde_c.disconnect()
