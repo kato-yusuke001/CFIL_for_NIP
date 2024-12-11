@@ -1,23 +1,18 @@
 import sys
 sys.dont_write_bytecode = True # キャッシュを生成させない
-nip_path = "C:\\Users\\4039423\\Contacts\\Desktop\\nip_v8000beta\\nip\\python\\CFIL_for_NIP"
+nip_path = "C:\\Users\\4039423\\Desktop\\N.I.P._ver.7.4.0.0\\binary\\python\\CFIL_for_NIP"
+
 if not nip_path in sys.path:
     sys.path.append(nip_path)
-# print(sys.path)
-# print(sys.version)
-# print(sys.version_info)
-from pathlib import Path
-# print(Path.cwd())
-# print(help("python"))
+
 import os
 print(os.getcwd())
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+# import torch
 
 import abc
 # import logging
 import time
 import numpy as np
-from datetime import datetime
 
 from rtde_control import RTDEControlInterface
 from rtde_receive import RTDEReceiveInterface
@@ -30,8 +25,6 @@ from dashboard_client import DashboardClient
 from scipy.spatial.transform import Rotation
 
 import json
-
-import cv2
 
 from logger import setup_logger
 
@@ -51,9 +44,8 @@ logging = setup_logger("robotNIPController", "robotNIPController")
 # ロボット設定
 print(os.getcwd())
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_kato.json"
-# ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
+ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ew.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_sim.json"
-ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_ursim.json"
 # ROBOTPARAMS = os.path.dirname(__file__) + "/robot_config_daic.json"
 json_file = open(ROBOTPARAMS, "r")
 json_dict = json.load(json_file)
@@ -67,6 +59,8 @@ rtde_r = None
 gripper = None
 dashboard = None
 io = None
+
+TIMEOUT = 15
 
 class RobotClient(metaclass=abc.ABCMeta):
     # 初期化処理
@@ -90,14 +84,37 @@ class RobotConnect(RobotClient):
             dashboard = DashboardClient(ROBOT_IP)
             dashboard.connect()
             print("dashboard connected")
-            # if(dashboard.isConnected()):
-            #     dashboard.powerOn()
-            #     dashboard.brakeRelease()
-            #     dashboard.unlockProtectiveStop()
-            if(rtde_c is None): rtde_c = RTDEControlInterface(ROBOT_IP)
-            print("rtde_c connected")
+           
             if(rtde_r is None): rtde_r = RTDEReceiveInterface(ROBOT_IP)
             print("rtde_r connected")
+            print("Safety Mode", rtde_r.getSafetyMode())
+            print("Robot Status", rtde_r.getRobotStatus())
+            if(dashboard.isConnected()):
+                dashboard.closeSafetyPopup()
+                dashboard.powerOn()
+                s_time = time.time()
+                while(rtde_r.getRobotMode() != 5 and rtde_r.getRobotMode() != 7):
+                    print(" Power on ...")
+                    time.sleep(1)
+                    if(time.time()-s_time > TIMEOUT):
+                        comment = "Failed to power on robot"
+                        print(comment)
+                        logging.error("{}".format(comment))
+                        return solution.judge_fail()
+                dashboard.brakeRelease()
+                s_time = time.time()
+                while(rtde_r.getRobotMode() != 7):
+                    print(" break release ...")
+                    time.sleep(1)
+                    if(time.time()-s_time > TIMEOUT):
+                        comment = "Failed to release brake"
+                        print(comment)
+                        logging.error("{}".format(comment))
+                        return solution.judge_fail()
+                dashboard.stop()
+
+            if(rtde_c is None): rtde_c = RTDEControlInterface(ROBOT_IP)
+            print("rtde_c connected")
             if(io is None): io = RTDEIOInterface(ROBOT_IP)
             print("io connected")
             if(gripper is not None):
@@ -120,8 +137,10 @@ class RobotConnect(RobotClient):
             return solution.judge_pass()
         except Exception as e:
             # 全ての種類のエラーを取得
+            print("Robot Connection is failed !")
             print(type(e), e)
             logging.error("{} : {}".format(type(e), e))
+            dashboard.disconnect()
             return solution.judge_fail()
 
 # 通信終了
@@ -137,31 +156,6 @@ class RobotDisconnect(RobotClient):
                 io.disconnect()
             if USE_GRIPPER:
                 gripper.disconnect()
-            return solution.judge_pass()
-        
-        except Exception as e:
-            print(type(e), e)
-            return solution.judge_fail()
-        
-class RobotReconnect(RobotClient):
-    def execute(self, solution):
-        global rtde_c, rtde_r, gripper, dashboard, io
-        try:
-            if rtde_c is not None:
-                rtde_c.disconnect()
-                rtde_c = None
-            if rtde_r is not None:
-                rtde_r.disconnect()
-                rtde_r = None
-            if io is not None:
-                io.disconnect()
-                io = None
-
-            rtde_c = RTDEControlInterface(ROBOT_IP)
-            rtde_r = RTDEReceiveInterface(ROBOT_IP)
-            io = RTDEIOInterface(ROBOT_IP)
-            
-            print("Robot ReConnection!")
             return solution.judge_pass()
         
         except Exception as e:
@@ -185,7 +179,7 @@ class WakeupRobot(RobotClient):
                 dashboard.closeSafetyPopup()
                 
                 if(rtde_r.getSafetyMode() == 9):
-                    print(" Status Failed", rtde_r.getSafetyMode())
+                    print(" Status Failed")
                     dashboard.restartSafety()
                     time.sleep(3)
                     dashboard.powerOn()
@@ -194,41 +188,39 @@ class WakeupRobot(RobotClient):
                     dashboard.unlockProtectiveStop()
                     rtde_c.disconnect()
                     rtde_r.disconnect()
-                    # gripper.disconnect()
+                    gripper.disconnect()
                     # io.disconnect()
                     rtde_c.reconnect()
                     rtde_r.reconnect()
                     # io.reconnect()
                 elif(rtde_r.getSafetyMode() == 7):
-                    print(" Status Emergency Button still pressed", rtde_r.getSafetyMode())
+                    print(" Status Emergency Button still pressed")
                     return solution.judge_fail()
                 else:
-                    print(" Status Standby", rtde_r.getSafetyMode())
+                    print(" Status Standby")
                     dashboard.powerOn()
-                    print("  Power On")
                     dashboard.brakeRelease()
-                    print("  Brake Release")
                     dashboard.unlockProtectiveStop()
-                    print("  Unlock Protective Stop")
                     io.setConfigurableDigitalOut(0,1)
                     io.setConfigurableDigitalOut(1,1)
-                    print("  io reset")
+                    # io.setConfigurableDigitalOut(0,0)
+                    # io.setConfigurableDigitalOut(1,0)
                     rtde_c.disconnect()
                     rtde_r.disconnect()
-                    print("   disconnect")
-                    # # io.disconnect()
-                    # #if USE_GRIPPER: gripper.disconnect()
+                    # io.disconnect()
+                    #if USE_GRIPPER: gripper.disconnect()
                     rtde_c.reconnect()
                     rtde_r.reconnect()
-                    print('   Robot Reconnected')
                     # io.reconnect()
                     #if USE_GRIPPER: gripper.reconnect()
                     print("Robot status", rtde_r.getRobotStatus())
                 s_time = time.time()
                 while(rtde_r.getRobotStatus()!=3):
-                    if(time.time()-s_time > 30):
-                        print("Failed to wakeup robot")
+                    if(time.time()-s_time > TIMEOUT):
                         set_variable(solution, "Servo_On", 0)
+                        comment = "Failed to wakeup robot"
+                        print(comment)
+                        logging.error("{}".format(comment))
                         return solution.judge_fail()
                     print(rtde_r.getRobotStatus(), rtde_r.getSafetyMode())
                     rtde_c.disconnect()
@@ -403,7 +395,6 @@ class MoveL(RobotClient):
                 return solution.judge_pass()
             else:
                 print("moveL failed")
-                logging.error("moveL failed")
                 set_variable(solution, "Server_Connect", 0)
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
         
@@ -449,7 +440,6 @@ class MoveL_mm(RobotClient):
                 return solution.judge_pass()
             else:
                 print("moveL(mm) failed")
-                logging.error("moveL(mm) failed")
                 set_variable(solution, "Server_Connect", 0)
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
         
@@ -527,6 +517,37 @@ class CheckPressure(RobotClient):
         else:
             return solution.judge_pass()
 
+class Rotate(RobotClient):
+    def execute(self, solution):
+        global rtde_r
+        try:
+            base_pose = get_variable(solution, "robot_initial_pose")
+            angles = get_variable(solution, "rotate_angles")
+            angles = [np.deg2rad(angle) for angle in angles]
+            goal_pose = rotate(base_pose, angles)
+            set_variable(solution, "target_rotVec", goal_pose[3:])
+            return solution.judge_pass()
+        except Exception as e:
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
+class LoadJson(RobotClient):
+    def execute(self, solution):
+        try:
+            json_file = get_variable(solution, "json_file")
+            json_file = json_file[0]
+            print(json_file)
+            json_dict = json.load(open(json_file, "r"))
+            print(json_dict)
+            set_variable_string(solution, "train_data_file", json_dict["train_data_file"])
+            return solution.judge_pass()
+        except Exception as e:
+            print(type(e), e)
+            logging.error("{} : {}".format(type(e), e))
+            return solution.judge_fail()
+
+
 def makeDict(value):
     if isinstance(value, list):
         return dict(zip(np.arange(1,len(value)+1), value))
@@ -555,223 +576,236 @@ def get_variable(solution, variable_name):
     val = list(solution.get_variable(variable_id).values())
     return val 
 
-#############################################################################################################################################
-#############################################################################################################################################
-#CFIL
-#############################################################################################################################################
-#############################################################################################################################################
-import torch
-from CFIL_for_NIP.memory import ApproachMemory
-from CFIL_for_NIP import utils
-from CFIL_for_NIP.network import ABN
-memory_size = 5e4
-device = "cuda" if torch.cuda.is_available() else "cpu"  
-# device = "cpu"  
-approach_memory = ApproachMemory(memory_size, device)
+def set_variable_string(solution, variable_string_name, value_string):
+    variable_id = solution.get_variable_id(variable_string_name)
+    if variable_id == 0:
+        print("Variable named {} did not found".format(variable_string_name))
+        return solution.judge_fail()
+    solution.set_variable_string(variable_id, value_string)
+    return solution
 
-cfil = None
 
-class Convert_c_T_r(RobotClient):
-    def execute(self, solution):
-        try:
+def rotate(pose, angles, order="xyz"):
+    rot = Rotation.from_euler(order, angles)
+    pose_rotvec = Rotation.from_rotvec(pose[3:])
 
-            mtx = np.load(os.path.dirname(__file__) + "/mtx.npy")
-            g_t_c = np.load(os.path.dirname(__file__) + "/g_t_c.npy")
-            g_R_c = np.load(os.path.dirname(__file__) + "/g_R_c.npy")
-            print(g_t_c, g_R_c)
-            g_R_c = Rotation.from_rotvec(g_R_c)
-            gTc = np.r_[np.c_[g_R_c.as_matrix(), g_t_c], np.array([[0, 0, 0, 1]])]
-
-            target_s = np.array(get_variable(solution, "target_in_camera"))
-
-            rtde_c.setTcp(np.concatenate([g_t_c, [0,0,0]], 0))
-            target_s_ = target_s*rtde_r.getActualTCPPose()[2]
-            print(target_s_)
-            rtde_c.setTcp(TCP)
-            target_c = np.dot(np.linalg.inv(mtx), target_s_)
-
-            R = np.asarray([[1,0,0], [0,1,0], [0,0,1]])
-
-            print(R.shape, target_c.shape)
-            cTt = np.r_[np.c_[R, target_c.T], np.array([[0, 0, 0, 1]])]
-
-            robot_pose = rtde_r.getActualTCPPose()
-            rot_bTg = Rotation.from_rotvec(robot_pose[3:])
-            bTg = np.r_[np.c_[rot_bTg.as_matrix(), np.array(robot_pose[:3]).T], np.array([[0, 0, 0, 1]])]
-
-            bTt = np.dot(np.dot(bTg, gTc),cTt)
-            print(bTt)
-
-            target = bTt[:-1,-1]
-            target_in_robotbase = np.concatenate([target[:3], robot_pose[3:]], 0)
-            print(target_in_robotbase)
-            set_variable(solution, "target_in_robotbase", target_in_robotbase.tolist())
-
-            return solution.judge_pass()          
-        
-        except Exception as e:
-                print(type(e), e)
-                logging.error("{} : {}".format(type(e), e))
-                return solution.judge_fail()
-
-class CFIL:
-    def __init__(self):
-        # import torch
-        self.device = "cuda" if torch.cuda.is_available() else "cpu" 
-        self.approach_model = ABN()
-        self.approach_model.to(self.device)
-
-        self.file_path = "CFIL_for_NIP\\train_data\\20240719150226"
-
-        self.image_size = 128
-
-    def loadTrainedModel(self):
-        # import torch
-        self.approach_model.load_state_dict(torch.load(os.path.join(self.file_path, "approach_model_final.pth"),map_location=torch.device(device), weights_only=True))
-
-    def approach_test_from_image(self, image):
-        # import torch
-        image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
-        # utils.save_img(image, os.path.join(self.abn_dir, "test_output"))
-        image = np.transpose(image, [2, 0, 1])
-        image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
-        image_tensor = torch.unsqueeze(image_tensor, 0)
-        self.approach_model.eval()
-        time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
-        with torch.no_grad():
-            # appraoch
-            output_tensor, _, att = self.approach_model(image_tensor)
-            output = output_tensor.to('cpu').detach().numpy().copy()
-
-        return output[0]
-
-class InitializeCFIL(RobotClient):
-    def execute(self, solution):
-        global cfil
-        try:
-            print("initialze CFIL")
-            cfil = CFIL()
-            return solution.judge_pass() 
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
-
-class LoadTrainedModel(RobotClient):
-    def execute(self, solution):        
-        global cfil
-        try:
-            if cfil is None:
-                print("CFIL model is not prepared")
-                return solution.judge_fail()
-            cfil.loadTrainedModel()
-            print("Trained model loaded")
-            return solution.judge_pass() 
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
-
-class Estimate(RobotClient):
-    def execute(self, solution):
-        global cfil
-        try:
-            if cfil is None:
-                print("CFIL model is not prepared")
-                return solution.judge_fail()
-            
-            image_id = solution.get_image_id("image")
-            image_tp = solution.get_image(image_id)
-            image, bit, ch, width, height = image_tp
-            image = np.array(list(image), dtype=np.uint8).reshape(height, width, ch)
-            print("image id", image_id)
-            print("image", image.shape)
-            output = cfil.approach_test_from_image(image)
-            print(output)
-            position_eb = [output[0], output[1], 0.01, 0, 0, output[2]]
-            ####必要な場合はここで座標変換####
-            position_re = rtde_r.getCurrentTCPPose()
-            position_rb = utils.reverse_transform(position_re, position_eb)    
-            # position_rb[2] = self.bottleneck_pose[2] + 0.01
-            # position_rb = self.check_range(position_rb)
-            #推定したposeをNIP側に受け渡し
-            print("estimated pose: ", position_rb)
-            set_variable(solution, "estimated_pose", position_rb)
-            return solution.judge_pass() 
-        
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
-
-class LoadImage(RobotClient):
-    def execute(self, solution):
-        
-        try:
-            
-            image_id = solution.get_image_id("image")
-            image_tp = solution.get_image(image_id)
-            image, bit, ch, width, height = image_tp
-            image = np.array(list(image), dtype=np.uint8).reshape(height, width, ch)
-            print(image)
-            return solution.judge_pass() 
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
-        
-class ExecuteCollectData(RobotClient):
-    def execute(self, solution):
-        try:
-            global rtde_r, approach_memory
-            s_time = time.time()
-            current_pose = np.array(rtde_r.getActualTCPPose())
-            image_id = solution.get_image_id("image")
-            if image_id==0:
-                print("Image ID not found")
-                return solution.judge_fail()
-            image_tp = solution.get_image(image_id)
-            print(time.time() - s_time)
-            image, bit, ch, width, height = image_tp
-            image = np.array(list(image), dtype=np.uint8).reshape(height, width, ch)
-            print(time.time() - s_time)
-            # image = cv2.resize(image, (224, 224))
-            cv2.imwrite("image.jpg", image)
-            print(time.time() - s_time)
-            if approach_memory.initialize is False:
-                approach_memory.initial_settings(image, current_pose) # 画像と姿勢のサイズの初期設定
-
-            approach_memory.append(image, current_pose)
-            print(time.time() - s_time)
-            return solution.judge_pass()
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
+    result_rot = rot * pose_rotvec
+    result_rotvec = result_rot.as_rotvec()
     
-class SaveCollectData(RobotClient):
-    def execute(self, solution):
-        try:
-            global approach_memory
-            path = os.getcwd()
-            approach_memory.save_joblib(os.path.join(path, "CFIL_for_NIP", "approach_memory.joblib"))
-            return solution.judge_pass()
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
+    result_pose = np.r_[pose[:3], result_rotvec]
 
-class Rotate(RobotClient):
-    def execute(self, solution):
-        global rtde_r
-        try:
-            base_pose = get_variable(solution, "robot_initial_pose")
-            angles = get_variable(solution, "rotate_angles")
-            angles = [np.deg2rad(angle) for angle in angles]
-            goal_pose = utils.rotate(base_pose, angles)
-            set_variable(solution, "target_rotVec", goal_pose[3:])
-            return solution.judge_pass()
-        except Exception as e:
-            print(type(e), e)
-            logging.error("{} : {}".format(type(e), e))
-            return solution.judge_fail()
+    return result_pose
+
+
+# class Convert_c_T_r(RobotClient):
+#     def execute(self, solution):
+#         try:
+
+#             mtx = np.load(os.path.dirname(__file__) + "/camera_info/mtx.npy")
+#             g_t_c = np.load(os.path.dirname(__file__) + "/camera_info/g_t_c.npy")
+#             g_R_c = np.load(os.path.dirname(__file__) + "/camera_info/g_R_c.npy")
+#             print(g_t_c, g_R_c)
+#             g_R_c = Rotation.from_rotvec(g_R_c)
+#             gTc = np.r_[np.c_[g_R_c.as_matrix(), g_t_c], np.array([[0, 0, 0, 1]])]
+
+#             target_s = np.array(get_variable(solution, "target_in_camera"))
+
+#             rtde_c.setTcp(np.concatenate([g_t_c, [0,0,0]], 0))
+#             target_s_ = target_s*rtde_r.getActualTCPPose()[2]
+#             print(target_s_)
+#             rtde_c.setTcp(TCP)
+#             target_c = np.dot(np.linalg.inv(mtx), target_s_)
+
+#             R = np.asarray([[1,0,0], [0,1,0], [0,0,1]])
+
+#             print(R.shape, target_c.shape)
+#             cTt = np.r_[np.c_[R, target_c.T], np.array([[0, 0, 0, 1]])]
+
+#             robot_pose = rtde_r.getActualTCPPose()
+#             rot_bTg = Rotation.from_rotvec(robot_pose[3:])
+#             bTg = np.r_[np.c_[rot_bTg.as_matrix(), np.array(robot_pose[:3]).T], np.array([[0, 0, 0, 1]])]
+
+#             bTt = np.dot(np.dot(bTg, gTc),cTt)
+#             print(bTt)
+
+#             target = bTt[:-1,-1]
+#             target_in_robotbase = np.concatenate([target[:3], robot_pose[3:]], 0)
+#             print(target_in_robotbase)
+#             set_variable(solution, "target_in_robotbase", target_in_robotbase.tolist())
+
+#             return solution.judge_pass()          
+        
+#         except Exception as e:
+#                 print(type(e), e)
+#                 logging.error("{} : {}".format(type(e), e))
+#                 return solution.judge_fail()
+
+# #############################################################################################################################################
+# #############################################################################################################################################
+# #CFIL
+# #############################################################################################################################################
+# #############################################################################################################################################
+# import torch
+# from CFIL_for_NIP.memory import ApproachMemory
+# from CFIL_for_NIP import utils
+# from CFIL_for_NIP.network import ABN
+# memory_size = 5e4
+# device = "cuda" if torch.cuda.is_available() else "cpu"  
+# # device = "cpu"  
+# approach_memory = ApproachMemory(memory_size, device)
+
+# cfil = None
+
+# class CFIL:
+#     def __init__(self):
+#         import torch
+#         self.device = "cuda" if torch.cuda.is_available() else "cpu" 
+#         self.approach_model = ABN()
+#         self.approach_model.to(self.device)
+
+#         self.file_path = "CFIL_for_NIP\\train_data\\20240719150226"
+
+#         self.image_size = 128
+
+#     def loadTrainedModel(self):
+#         import torch
+#         self.approach_model.load_state_dict(torch.load(os.path.join(self.file_path, "approach_model_final.pth"),map_location=torch.device('cpu')))
+
+#     def approach_test_from_image(self, image):
+#         import torch
+#         image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+#         # utils.save_img(image, os.path.join(self.abn_dir, "test_output"))
+#         image = np.transpose(image, [2, 0, 1])
+#         image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
+#         image_tensor = torch.unsqueeze(image_tensor, 0)
+#         self.approach_model.eval()
+#         time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
+#         with torch.no_grad():
+#             # appraoch
+#             output_tensor, _, att = self.approach_model(image_tensor)
+#             output = output_tensor.to('cpu').detach().numpy().copy()
+
+#         return output[0]
+
+# class InitializeCFIL(RobotClient):
+#     def execute(self, solution):
+#         global cfil
+#         try:
+#             print("initialze CFIL")
+#             cfil = CFIL()
+#             return solution.judge_pass() 
+#         except Exception as e:
+#             print(type(e), e)
+#             logging.error("{} : {}".format(type(e), e))
+#             return solution.judge_fail()
+
+# class LoadTrainedModel(RobotClient):
+#     def execute(self, solution):        
+#         global cfil
+#         try:
+#             if cfil is None:
+#                 print("CFIL model is not prepared")
+#                 return solution.judge_fail()
+#             cfil.loadTrainedModel()
+#             return solution.judge_pass() 
+#         except Exception as e:
+#             print(type(e), e)
+#             logging.error("{} : {}".format(type(e), e))
+#             return solution.judge_fail()
+
+# class Estimate(RobotClient):
+#     def execute(self, solution):
+#         global cfil
+#         try:
+#             if cfil is None:
+#                 print("CFIL model is not prepared")
+#                 return solution.judge_fail()
+            
+#             image_id = solution.get_image_id("image")
+#             image = solution.get_image(image_id)
+#             output = cfil.approach_test_from_image(image)
+#             position_eb = [output[0, 0], output[0, 1], 0.01, 0, 0, output[0, 2]]
+#             ####必要な場合はここで座標変換####
+#             position_re = rtde_r.getCurrentTCPPose()
+#             position_rb = utils.reverse_transform(position_re, position_eb)    
+#             # position_rb[2] = self.bottleneck_pose[2] + 0.01
+#             # position_rb = self.check_range(position_rb)
+#             #推定したposeをNIP側に受け渡し
+#             print("estimated pose: ", position_rb)
+#             set_variable(solution, "estimated_pose", position_rb)
+#             return solution.judge_pass() 
+        
+#         except Exception as e:
+#             print(type(e), e)
+#             logging.error("{} : {}".format(type(e), e))
+#             return solution.judge_fail()
+
+# class LoadImage(RobotClient):
+#     def execute(self, solution):
+        
+#         try:
+            
+#             image_id = solution.get_image_id("image")
+#             image = solution.get_image(image_id)
+#             print(image)
+#             return solution.judge_pass() 
+#         except Exception as e:
+#             print(type(e), e)
+#             logging.error("{} : {}".format(type(e), e))
+#             return solution.judge_fail()
+        
+# class ExecuteCollectData(RobotClient):
+#     def execute(self, solution):
+#         try:
+#             global rtde_r, approach_memory
+#             s_time = time.time()
+#             current_pose = np.array(rtde_r.getActualTCPPose())
+#             image_id = solution.get_image_id("image")
+#             if image_id==0:
+#                 print("Image ID not found")
+#                 return solution.judge_fail()
+#             image_tp = solution.get_image(image_id)
+#             print(time.time() - s_time)
+#             image, bit, ch, width, height = image_tp
+#             image = np.array(list(image), dtype=np.uint8).reshape(height, width, ch)
+#             print(time.time() - s_time)
+#             # image = cv2.resize(image, (224, 224))
+#             cv2.imwrite("image.jpg", image)
+#             print(time.time() - s_time)
+#             if approach_memory.initialize is False:
+#                 approach_memory.initial_settings(image, current_pose) # 画像と姿勢のサイズの初期設定
+
+#             approach_memory.append(image, current_pose)
+#             print(time.time() - s_time)
+#             return solution.judge_pass()
+#         except Exception as e:
+#             print(type(e), e)
+#             logging.error("{} : {}".format(type(e), e))
+#             return solution.judge_fail()
+    
+# class SaveCollectData(RobotClient):
+#     def execute(self, solution):
+#         try:
+#             global approach_memory
+#             path = os.getcwd()
+#             approach_memory.save_joblib(os.path.join(path, "CFIL_for_NIP", "approach_memory.joblib"))
+#             return solution.judge_pass()
+#         except Exception as e:
+#             print(type(e), e)
+#             logging.error("{} : {}".format(type(e), e))
+#             return solution.judge_fail()
+
+# class Rotate(RobotClient):
+#     def execute(self, solution):
+#         global rtde_r
+#         try:
+#             base_pose = get_variable(solution, "robot_initial_pose")
+#             angles = get_variable(solution, "rotate_angles")
+#             angles = [np.deg2rad(angle) for angle in angles]
+#             goal_pose = utils.rotate(base_pose, angles)
+#             set_variable(solution, "target_rotVec", goal_pose[3:])
+#             return solution.judge_pass()
+#         except Exception as e:
+#             print(type(e), e)
+#             logging.error("{} : {}".format(type(e), e))
+#             return solution.judge_fail()

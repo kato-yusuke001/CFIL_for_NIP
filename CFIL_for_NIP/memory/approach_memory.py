@@ -77,7 +77,7 @@ class ApproachMemory(dict):
 
         images_seq = np.transpose(images_seq, [0, 3, 1, 2])
 
-        positions_seq = positions_seq[:, [0, 1, 5, 2, 3, 4]][:, :3]
+        positions_seq = positions_seq[:, [0, 1, 2, 3, 4, 5]]
 
         images_seq = torch.ByteTensor(images_seq).to(self.device).float() / 255.
         positions_seq = torch.FloatTensor(positions_seq).to(self.device)

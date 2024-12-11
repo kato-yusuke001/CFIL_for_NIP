@@ -7,23 +7,22 @@ from torch.utils.data import DataLoader
 from .base import BaseNetwork
 
 torch.backends.cudnn.benchmark = True
-class ABN(BaseNetwork):
+class ABN128(BaseNetwork):
     def __init__(self):
         super().__init__()
+        input_size = 128
+        output_size = 128
 
         self.features = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, padding=2),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2),
+            nn.ReLU(inplace=True), 
+            nn.MaxPool2d(kernel_size=2), # 64
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2),
+            nn.MaxPool2d(kernel_size=2), # 32
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2),
-            # nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            # nn.ReLU(inplace=True),
-            # nn.MaxPool2d(kernel_size=2),
+            nn.MaxPool2d(kernel_size=2), #16
             nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
 
@@ -33,39 +32,90 @@ class ABN(BaseNetwork):
             nn.Linear(in_features=128*16*16, out_features=512),
             nn.Linear(in_features=512, out_features=128),
             nn.Linear(in_features=128, out_features=32),
-            nn.Linear(in_features=32, out_features=3)
+            nn.Linear(in_features=32, out_features=6)
             )
 
-        self.attenstion = nn.Sequential(
+        self.attention = nn.Sequential(
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1, padding=0),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1, padding=0),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=128, out_channels=3, kernel_size=1, padding=0),
+            nn.Conv2d(in_channels=128, out_channels=6, kernel_size=1, padding=0),
         )
         self.bn_att = nn.BatchNorm2d(1)
         self.sigmoid = nn.Sigmoid()
 
         self.wgp = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=3, kernel_size=16, padding=0),
+            nn.Conv2d(in_channels=3, out_channels=6, kernel_size=16, padding=0),
             nn.Tanh()
         )
-        # self.wgp_conv = nn.Conv2d(in_channels=3, out_channels=3, kernel_size=8, padding=0)
-        # self.wgp_pool = nn.AvgPool2d(8)
-
-        # self.tanh = nn.Tanh()
     
 
     def forward(self, x):
         x = self.features(x)
 
-        ax = self.attenstion(x)
+        ax = self.attention(x)
         att = torch.sum(ax, dim=1, keepdim=True)
         ax = self.wgp(ax)
-        # ax = self.wgp_conv(self.att)        
-        # ax = self.tanh(ax)
+    
+        rx = x * att
+        rx = rx.reshape(rx.size(0), -1)
+        rx = self.regression(rx)
+        ax = ax.reshape(ax.size(0), -1)
+        return rx, ax, att
+    
 
-        # print(x.size(), self.att.size(), self.att.sum(1, keepdim=True).size())
+class ABN256(BaseNetwork):
+    def __init__(self):
+        super().__init__()
+        input_size = 256
+        output_size = 256
+
+
+        self.features = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, padding=2),
+            nn.ReLU(inplace=True), 
+            nn.MaxPool2d(kernel_size=2), # 128
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2), # 64
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2), #32
+            nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+
+
+        )
+        self.regression = nn.Sequential(
+            nn.Linear(in_features=128*32*32, out_features=512),
+            nn.Linear(in_features=512, out_features=128),
+            nn.Linear(in_features=128, out_features=32),
+            nn.Linear(in_features=32, out_features=6)
+            )
+
+        self.attention = nn.Sequential(
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1, padding=0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1, padding=0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=128, out_channels=6, kernel_size=1, padding=0),
+        )
+        self.bn_att = nn.BatchNorm2d(1)
+        self.sigmoid = nn.Sigmoid()
+
+        self.wgp = nn.Sequential(
+            nn.Conv2d(in_channels=6, out_channels=6, kernel_size=32, padding=0),
+            nn.Tanh()
+        )
+    
+
+    def forward(self, x):
+        x = self.features(x)
+
+        ax = self.attention(x)
+        att = torch.sum(ax, dim=1, keepdim=True)
+        ax = self.wgp(ax)
     
         rx = x * att
         rx = rx.reshape(rx.size(0), -1)
@@ -74,196 +124,3 @@ class ABN(BaseNetwork):
         return rx, ax, att
 
 
-# '''Resnet for cifar dataset.
-# Ported form
-# https://github.com/facebook/fb.resnet.torch
-# and
-# https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
-# (c) YANG, Wei
-# '''
-
-# __all__ = ['resnet']
-
-# def conv3x3(in_planes, out_planes, stride=1):
-#     "3x3 convolution with padding"
-#     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-#                      padding=1, bias=False)
-
-
-# class BasicBlock(nn.Module):
-#     expansion = 1
-
-#     def __init__(self, inplanes, planes, stride=1, downsample=None):
-#         super(BasicBlock, self).__init__()
-#         self.conv1 = conv3x3(inplanes, planes, stride)
-#         self.bn1 = nn.BatchNorm2d(planes)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.conv2 = conv3x3(planes, planes)
-#         self.bn2 = nn.BatchNorm2d(planes)
-#         self.downsample = downsample
-#         self.stride = stride
-
-#     def forward(self, x):
-#         residual = x
-
-#         out = self.conv1(x)
-#         out = self.bn1(out)
-#         out = self.relu(out)
-
-#         out = self.conv2(out)
-#         out = self.bn2(out)
-
-#         if self.downsample is not None:
-#             residual = self.downsample(x)
-
-#         out += residual
-#         out = self.relu(out)
-
-#         return out
-
-
-# class Bottleneck(nn.Module):
-#     expansion = 4
-
-#     def __init__(self, inplanes, planes, stride=1, downsample=None):
-#         super(Bottleneck, self).__init__()
-#         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-#         self.bn1 = nn.BatchNorm2d(planes)
-#         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-#                                padding=1, bias=False)
-#         self.bn2 = nn.BatchNorm2d(planes)
-#         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
-#         self.bn3 = nn.BatchNorm2d(planes * 4)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.downsample = downsample
-#         self.stride = stride
-
-#     def forward(self, x):
-#         residual = x
-
-#         out = self.conv1(x)
-#         out = self.bn1(out)
-#         out = self.relu(out)
-
-#         out = self.conv2(out)
-#         out = self.bn2(out)
-#         out = self.relu(out)
-
-#         out = self.conv3(out)
-#         out = self.bn3(out)
-
-#         if self.downsample is not None:
-#             residual = self.downsample(x)
-
-#         out += residual
-#         out = self.relu(out)
-
-#         return out
-
-
-# class ResNet(nn.Module):
-
-#     def __init__(self, depth, num_classes=1000):
-#         super(ResNet, self).__init__()
-#         # Model type specifies number of layers for CIFAR-10 model
-#         assert (depth - 2) % 6 == 0, 'depth should be 6n+2'
-#         n = (depth - 2) // 6
-
-#         block = Bottleneck if depth >=44 else BasicBlock
-
-#         self.inplanes = 16
-#         self.conv1 = nn.Conv2d(3, 16, kernel_size=3, padding=1,
-#                                bias=False)
-#         self.bn1 = nn.BatchNorm2d(16)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.layer1 = self._make_layer(block, 16, n, down_size=True)
-#         self.layer2 = self._make_layer(block, 32, n, stride=2, down_size=True)
-
-#         self.att_layer3 = self._make_layer(block, 64, n, stride=1, down_size=False)
-#         self.bn_att = nn.BatchNorm2d(64 * block.expansion)
-#         self.att_conv   = nn.Conv2d(64 * block.expansion, num_classes, kernel_size=1, padding=0,
-#                                bias=False)
-#         self.bn_att2 = nn.BatchNorm2d(num_classes)
-#         self.att_conv2  = nn.Conv2d(num_classes, num_classes, kernel_size=1, padding=0,
-#                                bias=False)
-#         self.att_conv3  = nn.Conv2d(num_classes, 1, kernel_size=3, padding=1,
-#                                bias=False)
-#         self.bn_att3 = nn.BatchNorm2d(1)
-#         self.att_gap = nn.AvgPool2d(16)
-#         self.sigmoid = nn.Sigmoid()
-
-#         self.layer3 = self._make_layer(block, 64, n, stride=2, down_size=True)
-#         self.avgpool = nn.AvgPool2d(8)
-#         self.fc = nn.Linear(64 * block.expansion, num_classes)
-
-#         # print(block, n)
-#         # self.att_layer3 = self._make_layer(block, 64, n, stride=1)
-#         # self.att_conv   = nn.Conv2d(64, num_classes, kernel_size=3, padding=1,
-#         #                        bias=False)
-#         # self.att_gap = nn.AvgPool2d(16)
-
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d):
-#                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-#                 m.weight.data.normal_(0, math.sqrt(2. / n))
-#             elif isinstance(m, nn.BatchNorm2d):
-#                 m.weight.data.fill_(1)
-#                 m.bias.data.zero_()
-
-#     def _make_layer(self, block, planes, blocks, stride=1, down_size=True):
-#         downsample = None
-#         if stride != 1 or self.inplanes != planes * block.expansion:
-#             downsample = nn.Sequential(
-#                 nn.Conv2d(self.inplanes, planes * block.expansion,
-#                           kernel_size=1, stride=stride, bias=False),
-#                 nn.BatchNorm2d(planes * block.expansion),
-#             )
-
-#         layers = []
-#         layers.append(block(self.inplanes, planes, stride, downsample))
-#         if down_size:
-#             self.inplanes = planes * block.expansion
-#             for i in range(1, blocks):
-#                 layers.append(block(self.inplanes, planes))
-
-#             return nn.Sequential(*layers)
-#         else:
-#             inplanes = planes * block.expansion
-#             for i in range(1, blocks):
-#                 layers.append(block(inplanes, planes))
-
-#             return nn.Sequential(*layers)
-
-
-#     def forward(self, x):
-#         x = self.conv1(x)
-#         x = self.bn1(x)
-#         x = self.relu(x)    # 32x32
-
-#         x = self.layer1(x)  # 32x32
-#         x = self.layer2(x)  # 16x16
-
-#         ax = self.bn_att(self.att_layer3(x))
-#         ax = self.relu(self.bn_att2(self.att_conv(ax)))
-#         bs, cs, ys, xs = ax.shape
-#         self.att = self.sigmoid(self.bn_att3(self.att_conv3(ax)))
-#         # self.att = self.att.view(bs, 1, ys, xs)
-#         ax = self.att_conv2(ax)
-#         ax = self.att_gap(ax)
-#         ax = ax.view(ax.size(0), -1)
-
-#         rx = x * self.att
-#         rx = rx + x
-#         rx = self.layer3(rx)  # 8x8
-#         rx = self.avgpool(rx)
-#         rx = rx.view(rx.size(0), -1)
-#         rx = self.fc(rx)
-
-#         return ax, rx, self.att
-
-
-# def resnet(**kwargs):
-#     """
-#     Constructs a ResNet model.
-#     """
-#     return ResNet(**kwargs)
