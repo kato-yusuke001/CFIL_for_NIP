@@ -17,7 +17,7 @@ import numpy as np
 from rtde_control import RTDEControlInterface
 from rtde_receive import RTDEReceiveInterface
 from robotiq_epick import RobotiqEpick
-from robotiq_rtu import RobotiqRtu
+# from robotiq_rtu import RobotiqRtu
 from vacuum_gripper import VacuumGripper
 from rtde_io import RTDEIOInterface
 from dashboard_client import DashboardClient
@@ -89,6 +89,7 @@ class RobotConnect(RobotClient):
             print("rtde_r connected")
             print("Safety Mode", rtde_r.getSafetyMode())
             print("Robot Status", rtde_r.getRobotStatus())
+            print("Robot Mode", rtde_r.getRobotMode())
             if(dashboard.isConnected()):
                 dashboard.closeSafetyPopup()
                 dashboard.powerOn()
@@ -115,19 +116,20 @@ class RobotConnect(RobotClient):
 
             if(rtde_c is None): rtde_c = RTDEControlInterface(ROBOT_IP)
             print("rtde_c connected")
-            if(io is None): io = RTDEIOInterface(ROBOT_IP)
-            print("io connected")
+            
             if(gripper is not None):
                 pass
             elif USE_GRIPPER == "socket": # EPcikをURのフランジに接続するとき
                 gripper = RobotiqEpick()
                 gripper.connect(ROBOT_IP, 63352)
                 gripper.activate()
-            elif USE_GRIPPER == "rtu": # EPickをCOMポートでPCに接続するとき
-                gripper = RobotiqRtu()
-                gripper.connect("COM3")
-                gripper.activate()
+            # elif USE_GRIPPER == "rtu": # EPickをCOMポートでPCに接続するとき
+            #     gripper = RobotiqRtu()
+            #     gripper.connect("COM3")
+            #     gripper.activate()
             elif USE_GRIPPER == "ejector": # 圧縮空気を使ってエジェクターから真空吸着するとき
+                if(io is None): io = RTDEIOInterface(ROBOT_IP)
+                print("io connected")
                 gripper = VacuumGripper(_io=io, _rtde_r=rtde_r)
             else:
                 pass
@@ -275,7 +277,7 @@ class WakeupRobot(RobotClient):
 class GetServoStatus(RobotClient):
     # 実行
     def execute(self, solution):
-        global rtde_c, rtde_r, dashboard, io, gripper
+        global rtde_c, rtde_r, dashboard
         try:
             print("Safety Mode", rtde_r.getSafetyMode())
             print("Robot Status", rtde_r.getRobotStatus())
