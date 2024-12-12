@@ -1,0 +1,32 @@
+ print("Safety Mode", rtde_r.getSafetyMode()) 
+            
+IS_NORMAL_MODE = 0
+IS_REDUCED_MODE = 1
+IS_PROTECTIVE_STOPPED = 2
+IS_RECOVERY_MODE = 3
+IS_SAFEGUARD_STOPPED = 4
+IS_SYSTEM_EMERGENCY_STOPPED = 5
+IS_ROBOT_EMERGENCY_STOPPED = 6
+IS_EMERGENCY_STOPPED = 7
+IS_VIOLATION = 8
+IS_FAULT = 9
+IS_STOPPED_DUE_TO_SAFETY = 10
+
+
+print("Robot Status", rtde_r.getRobotStatus())
+Is power on = 0
+Is program running = 1
+Is teach button pressed = 2
+Is power button pressed = 3
+
+print("Robot Mode", rtde_r.getRobotMode())
+ROBOT_MODE_NO_CONTROLLER = -1
+ROBOT_MODE_DISCONNECTED =  0
+ROBOT_MODE_CONFIRM_SAFETY  =  1
+ROBOT_MODE_BOOTING  =  2
+ROBOT_MODE_POWER_OFF  =  3
+ROBOT_MODE_POWER_ON  =  4
+ROBOT_MODE_IDLE  =  5
+ROBOT_MODE_BACKDRIVE  =  6
+ROBOT_MODE_RUNNING  =  7
+ROBOT_MODE_UPDATING_FIRMWARE =  8
