@@ -76,7 +76,7 @@ class RobotClient(metaclass=abc.ABCMeta):
         pass
 
 
-# 通信開始
+# ロボットとPCの接続を確立
 class RobotConnect(RobotClient):
     def execute(self, solution):
         global rtde_c, rtde_r, gripper, dashboard, io
@@ -168,74 +168,103 @@ class WakeupRobot(RobotClient):
     def execute(self, solution):
         global rtde_c, rtde_r, dashboard, io, gripper
         try:
-            print("Safety Mode", rtde_r.getSafetyMode())
+            # robotの状態確認
+            print("Safety Mode", rtde_r.getSafetyMode()) 
             print("Robot Status", rtde_r.getRobotStatus())
-            if(rtde_r.getRobotStatus()==3):
+            print("Robot Mode", rtde_r.getRobotMode())
+            # if(rtde_r.getRobotStatus()==3):
+            if(rtde_r.getRobotMode()==7): # Robot mode is running
                 dashboard.closeSafetyPopup()
                 print(" Status Normal")
                 return solution.judge_pass()
-            print("wakeup robot ...")
-            if(dashboard.isConnected()):
-                dashboard.closeSafetyPopup()
-                
-                if(rtde_r.getSafetyMode() == 9):
-                    print(" Status Failed")
-                    dashboard.restartSafety()
-                    time.sleep(3)
-                    dashboard.powerOn()
-                    time.sleep(3)
-                    dashboard.brakeRelease()
-                    dashboard.unlockProtectiveStop()
-                    rtde_c.disconnect()
-                    rtde_r.disconnect()
-                    gripper.disconnect()
-                    # io.disconnect()
-                    rtde_c.reconnect()
-                    rtde_r.reconnect()
-                    # io.reconnect()
-                elif(rtde_r.getSafetyMode() == 7):
-                    print(" Status Emergency Button still pressed")
-                    return solution.judge_fail()
-                else:
-                    print(" Status Standby")
-                    dashboard.powerOn()
-                    dashboard.brakeRelease()
-                    dashboard.unlockProtectiveStop()
-                    io.setConfigurableDigitalOut(0,1)
-                    io.setConfigurableDigitalOut(1,1)
-                    # io.setConfigurableDigitalOut(0,0)
-                    # io.setConfigurableDigitalOut(1,0)
-                    rtde_c.disconnect()
-                    rtde_r.disconnect()
-                    # io.disconnect()
-                    #if USE_GRIPPER: gripper.disconnect()
-                    rtde_c.reconnect()
-                    rtde_r.reconnect()
-                    # io.reconnect()
-                    #if USE_GRIPPER: gripper.reconnect()
-                    print("Robot status", rtde_r.getRobotStatus())
-                s_time = time.time()
-                while(rtde_r.getRobotStatus()!=3):
-                    if(time.time()-s_time > TIMEOUT):
-                        set_variable(solution, "Servo_On", 0)
-                        comment = "Failed to wakeup robot"
-                        print(comment)
-                        logging.error("{}".format(comment))
-                        return solution.judge_fail()
-                    print(rtde_r.getRobotStatus(), rtde_r.getSafetyMode())
-                    rtde_c.disconnect()
-                    rtde_r.disconnect()
-                    # io.disconnect()
-                    rtde_c.reconnect()
-                    rtde_r.reconnect()
-                    # io.reconnect()
-                print("Completed to wakeup robot")
-                set_variable(solution, "Servo_On", 1)
-                return solution.judge_pass()
+            
             else:
-                print("Failed to wakeup robot")
-                set_variable(solution, "Servo_On", 0)
-                return solution.judge_fail()
+                print("wakeup robot ...")
+                if(dashboard.isConnected()):
+                    dashboard.closeSafetyPopup()
+                    dashboard.powerOn()
+                    s_time = time.time()
+                    while(rtde_r.getRobotMode() != 5 and rtde_r.getRobotMode() != 7):
+                        print(" Power on ...")
+                        time.sleep(1)
+                        if(time.time()-s_time > TIMEOUT):
+                            comment = "Failed to power on robot"
+                            print(comment)
+                            logging.error("{}".format(comment))
+                            return solution.judge_fail()
+                    dashboard.brakeRelease()
+                    s_time = time.time()
+                    while(rtde_r.getRobotMode() != 7):
+                        print(" break release ...")
+                        time.sleep(1)
+                        if(time.time()-s_time > TIMEOUT):
+                            comment = "Failed to release brake"
+                            print(comment)
+                            logging.error("{}".format(comment))
+                            return solution.judge_fail()
+                    dashboard.stop()
+
+                # if(dashboard.isConnected()):
+                #     dashboard.closeSafetyPopup()
+                    
+                #     if(rtde_r.getSafetyMode() == 9):
+                #         print(" Status Failed")
+                #         dashboard.restartSafety()
+                #         time.sleep(3)
+                #         dashboard.powerOn()
+                #         time.sleep(3)
+                #         dashboard.brakeRelease()
+                #         dashboard.unlockProtectiveStop()
+                #         rtde_c.disconnect()
+                #         rtde_r.disconnect()
+                #         gripper.disconnect()
+                #         # io.disconnect()
+                #         rtde_c.reconnect()
+                #         rtde_r.reconnect()
+                #         # io.reconnect()
+                #     elif(rtde_r.getSafetyMode() == 7):
+                #         print(" Status Emergency Button still pressed")
+                #         return solution.judge_fail()
+                #     else:
+                #         print(" Status Standby")
+                #         dashboard.powerOn()
+                #         dashboard.brakeRelease()
+                #         dashboard.unlockProtectiveStop()
+                #         io.setConfigurableDigitalOut(0,1)
+                #         io.setConfigurableDigitalOut(1,1)
+                #         # io.setConfigurableDigitalOut(0,0)
+                #         # io.setConfigurableDigitalOut(1,0)
+                #         rtde_c.disconnect()
+                #         rtde_r.disconnect()
+                #         # io.disconnect()
+                #         #if USE_GRIPPER: gripper.disconnect()
+                #         rtde_c.reconnect()
+                #         rtde_r.reconnect()
+                #         # io.reconnect()
+                #         #if USE_GRIPPER: gripper.reconnect()
+                #         print("Robot status", rtde_r.getRobotStatus())
+                #     s_time = time.time()
+                #     while(rtde_r.getRobotStatus()!=3):
+                #         if(time.time()-s_time > TIMEOUT):
+                #             set_variable(solution, "Servo_On", 0)
+                #             comment = "Failed to wakeup robot"
+                #             print(comment)
+                #             logging.error("{}".format(comment))
+                #             return solution.judge_fail()
+                #         print(rtde_r.getRobotStatus(), rtde_r.getSafetyMode())
+                #         rtde_c.disconnect()
+                #         rtde_r.disconnect()
+                #         # io.disconnect()
+                #         rtde_c.reconnect()
+                #         rtde_r.reconnect()
+                #         # io.reconnect()
+                #     print("Completed to wakeup robot")
+                #     set_variable(solution, "Servo_On", 1)
+                #     return solution.judge_pass()
+                # else:
+                #     print("Failed to wakeup robot")
+                #     set_variable(solution, "Servo_On", 0)
+                #     return solution.judge_fail()
 
         except Exception as e:
             print(type(e), e)
@@ -250,6 +279,7 @@ class GetServoStatus(RobotClient):
         try:
             print("Safety Mode", rtde_r.getSafetyMode())
             print("Robot Status", rtde_r.getRobotStatus())
+            print("Robot Mode", rtde_r.getRobotMode())
             if(rtde_r.getRobotStatus()==3):
                 dashboard.closeSafetyPopup()
                 print(" Status Normal")
