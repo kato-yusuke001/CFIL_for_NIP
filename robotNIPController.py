@@ -218,6 +218,10 @@ class WakeupRobot(RobotClient):
                         rtde_c.disconnect()
                         rtde_c = RTDEControlInterface(ROBOT_IP)
                     log_info_output("rtde_c connected")
+                    return solution.judge_pass()
+                else:
+                    log_error_output("Failed to connect dashboard")
+                    return solution.judge_fail()
 
         except Exception as e:
             log_error_output("{} : {}".format(type(e), e))
