@@ -101,9 +101,11 @@ class RobotConnect(RobotClient):
             log_info_output("Robot Mode: {}".format(rtde_r.getRobotMode()))
             if(dashboard.isConnected()):
                 dashboard.closeSafetyPopup()
-                dashboard.powerOn()
+                if(rtde_r.getSafetyMode() == 2 or rtde_r.getSafetyMode() == 8 or rtde_r.getSafetyMode() == 9):
+                    dashboard.restartSafety()
                 s_time = time.time()
                 while(rtde_r.getRobotMode() != 5 and rtde_r.getRobotMode() != 7):
+                    dashboard.powerOn()
                     log_info_output(" Power on ...")
                     time.sleep(1)
                     if(time.time()-s_time > TIMEOUT):
@@ -191,9 +193,11 @@ class WakeupRobot(RobotClient):
                 log_info_output("wakeup robot ...")
                 if(dashboard.isConnected()):
                     dashboard.closeSafetyPopup()
-                    dashboard.powerOn()
+                    if(rtde_r.getSafetyMode() == 2 or rtde_r.getSafetyMode() == 8 or rtde_r.getSafetyMode() == 9):
+                        dashboard.restartSafety()
                     s_time = time.time()
                     while(rtde_r.getRobotMode() != 5 and rtde_r.getRobotMode() != 7):
+                        dashboard.powerOn()
                         log_info_output(" Power on ...")
                         time.sleep(1)
                         if(time.time()-s_time > TIMEOUT):
