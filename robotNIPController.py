@@ -345,7 +345,7 @@ class MoveL(RobotClient):
             # ret = rtde_c.moveL(dst, speed=0.15, acceleration=0.5)
             ret = rtde_c.moveL(dst, speed=1.15, acceleration=1.5)
             if(ret):
-                log_info_output("moveL success: ", dst)
+                log_info_output("moveL success: {}".format(dst))
                 # set_variable(solution, "Server_Connect", 1)
                 return solution.judge_pass()
             else:
@@ -388,7 +388,7 @@ class MoveL_mm(RobotClient):
             # ret = rtde_c.moveL(dst, speed=0.15, acceleration=0.5)
             ret = rtde_c.moveL(dst, speed=1.15, acceleration=1.5)
             if(ret):
-                log_info_output("moveL(mm) success: ", dst)
+                log_info_output("moveL(mm) success: {}".format(dst))
                 # set_variable(solution, "Server_Connect", 1)
                 return solution.judge_pass()
             else:
