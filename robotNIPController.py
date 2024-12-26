@@ -549,3 +549,46 @@ def rotate(pose, angles, order="xyz"):
     result_pose = np.r_[pose[:3], result_rotvec]
 
     return result_pose
+
+class Convert_c_T_r(RobotClient):
+    def execute(self, solution):
+        try:
+
+            mtx = np.load(os.path.dirname(__file__) + "/camera_info/mtx.npy")
+            g_t_c = np.load(os.path.dirname(__file__) + "/camera_info/g_t_c.npy")
+            g_R_c = np.load(os.path.dirname(__file__) + "/camera_info/g_R_c.npy")
+            print(g_t_c, g_R_c)
+            g_R_c = Rotation.from_rotvec(g_R_c)
+            gTc = np.r_[np.c_[g_R_c.as_matrix(), g_t_c], np.array([[0, 0, 0, 1]])]
+
+            target_s = np.array(get_variable(solution, "target_in_camera"))
+
+            rtde_c.setTcp(np.concatenate([g_t_c, [0,0,0]], 0))
+            target_s_ = target_s*rtde_r.getActualTCPPose()[2]
+            print(target_s_)
+            rtde_c.setTcp(TCP)
+            target_c = np.dot(np.linalg.inv(mtx), target_s_)
+
+            R = np.asarray([[1,0,0], [0,1,0], [0,0,1]])
+
+            print(R.shape, target_c.shape)
+            cTt = np.r_[np.c_[R, target_c.T], np.array([[0, 0, 0, 1]])]
+
+            robot_pose = rtde_r.getActualTCPPose()
+            rot_bTg = Rotation.from_rotvec(robot_pose[3:])
+            bTg = np.r_[np.c_[rot_bTg.as_matrix(), np.array(robot_pose[:3]).T], np.array([[0, 0, 0, 1]])]
+
+            bTt = np.dot(np.dot(bTg, gTc),cTt)
+            print(bTt)
+
+            target = bTt[:-1,-1]
+            target_in_robotbase = np.concatenate([target[:3], robot_pose[3:]], 0)
+            print(target_in_robotbase)
+            set_variable(solution, "target_in_robotbase", target_in_robotbase.tolist())
+
+            return solution.judge_pass()          
+        
+        except Exception as e:
+                print(type(e), e)
+                logging.error("{} : {}".format(type(e), e))
+                return solution.judge_fail()
