@@ -80,10 +80,12 @@ class CFILLearn():
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
         for pose, image_path in tqdm(zip(poses, image_paths)):
             # print(image_path)
+            basename = os.path.basename(image_path)
 
-            image = cv2.imread(image_path+".jpg")
-            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
-            # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # image = cv2.imread(image_path+".jpg")
+            image = cv2.imread(os.path.join(file_path,"image/" + basename+".jpg"))
+            # image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+            
             if self.use_sam:
                 if self.sam_f:
                     masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM_f(image)
@@ -93,7 +95,7 @@ class CFILLearn():
                 # image = per_sam.save_randomback_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
                 # image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
 
-            
+            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             pose_eb = utils.transform(pose, bottleneck_pose)
             pose_eb = self.rotvec2euler(pose_eb)
             # print(pose, pose_eb)

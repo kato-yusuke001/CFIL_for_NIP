@@ -1,8 +1,8 @@
 import numpy as np
-import torch
+import os
 import matplotlib.pyplot as plt
 import cv2
-import sys
+import json
 # sys.path.append('segment-anything')
 from segment_anything import sam_model_registry, SamPredictor
 
@@ -26,7 +26,39 @@ def show_box(box, ax):
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0,0,0,0), lw=2))    
 
-image = cv2.imread('C:\\Users\\4039423\Desktop\\N.I.P._ver.7.4.0.0\\binary\\python\\CFIL_for_NIP\\train_data\\20250129_white\\initial_image.jpg')
+settings_file_path = "cfil_config.json"
+json_file = open(settings_file_path, "r")
+json_dict = json.load(json_file)
+file_path = os.path.join("CFIL_for_NIP\\train_data", json_dict["train_data_file"])
+
+image_path = os.path.join(file_path, "initial_image.jpg")
+save_path = os.path.join(file_path, "ref")
+os.makedirs(save_path, exist_ok=True)
+
+
+image = cv2.imread(image_path)
+cv2.imwrite(os.path.join(save_path, "original.jpg"), image)
+
+
+input_point = None
+rate = 10
+def onMouse(event, x, y, flags, params):
+    global input_point
+    if event == cv2.EVENT_LBUTTONDOWN:
+        print(x, y)
+        input_point = np.array([[x*rate, y*rate]])
+
+while True:
+    cv2.imshow('original', cv2.resize(image, (image.shape[1]//rate, image.shape[0]//rate)))
+    cv2.setMouseCallback('original', onMouse)
+
+    if cv2.waitKey(1):
+        if input_point is not None:
+            cv2.destroyWindow('original')
+            break
+
+
+
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 sam_checkpoint = "sam\\sam_vit_h.pth"
@@ -41,7 +73,7 @@ predictor = SamPredictor(sam)
 
 predictor.set_image(image)
 
-input_point = np.array([[2700, 2000]])
+# input_point = np.array([[2700, 2000]])
 input_label = np.array([1])
 
 masks, scores, logits = predictor.predict(
@@ -50,6 +82,7 @@ masks, scores, logits = predictor.predict(
     multimask_output=True,
 )
 
+plt.figure(figsize=(15,5))
 for i, (mask, score) in enumerate(zip(masks, scores)):
     plt.subplot(1, len(masks), i+1)
     plt.imshow(image)
@@ -63,8 +96,10 @@ best_idx = np.argmax(scores)
 final_mask = masks[best_idx]
 masked_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
 masked_image[final_mask, :] = image[final_mask, :]
-cv2.imwrite("masked_image.jpg", cv2.cvtColor(masked_image, cv2.COLOR_RGB2BGR))
+save_masked_image_path = os.path.join(save_path, "masked_image.jpg")
+cv2.imwrite(save_masked_image_path, cv2.cvtColor(masked_image, cv2.COLOR_RGB2BGR))
 
 mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
 mask_colors[final_mask, :] = np.array([[0, 0, 128]])
-cv2.imwrite("mask.jpg", mask_colors)
+save_mask_image_path = os.path.join(save_path, "mask.jpg")
+cv2.imwrite(save_mask_image_path, mask_colors)
