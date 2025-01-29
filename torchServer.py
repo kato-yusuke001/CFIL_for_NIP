@@ -4,7 +4,7 @@ print(os.getcwd())
 import logging
 import cv2
 import numpy as np
-from datetime
+from datetime import datetime
 from flask import Flask, request
 import torch
 
@@ -168,7 +168,7 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
              
-    def loadTrainedModel(self, model_path):
+    def loadTrainedModel(self, model_path=None):
         try:
             if self.train_data_file is None:
                 self.cfil.load_state_dict(torch.load(os.path.join(model_path, "approach_model_final.pth"),map_location=self.device))
@@ -405,7 +405,7 @@ class Agent:
         self.loadJson()
         self.loadSAMModel()
         self.loadTrainedModel()
-        self.initialize_positionDetector()
+        # self.initialize_positionDetector()
         return True
 
     def loadJson(self, path="cfil_config.json"):

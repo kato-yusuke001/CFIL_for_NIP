@@ -244,7 +244,7 @@ class GetServoStatus(RobotClient):
                 set_variable(solution, "Servo_On", 1)
                 return solution.judge_pass()
             else:
-                log_info_output("Sero is off")
+                log_info_output("Servo is off")
                 
                 set_variable(solution, "Servo_On", 0)
                 return solution.judge_fail()
