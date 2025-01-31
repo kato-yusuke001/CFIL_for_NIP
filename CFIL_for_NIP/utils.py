@@ -1,7 +1,12 @@
 import sys
-import msvcrt
-# import tty
-# import select
+
+try:
+    import msvcrt        # Windows
+except ImportError:
+    # import tty        # Linux
+    # import select        
+    pass
+
 import cv2
 import numpy as np
 

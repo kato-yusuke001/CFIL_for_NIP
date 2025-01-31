@@ -3,7 +3,7 @@
     "memory_size":5e4,
     "batch_size":32,
     "train_epochs":10000,
-    "train_data_file":"20250127_blue",
+    "train_data_file":"20250129_mirror",
     "_train_data_file_tsu":"20241008_114308_366",
     "use_sam":true,
     "sam_f":false

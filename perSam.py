@@ -54,7 +54,7 @@ class PerSAM:
         ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
         print(ref_image.shape, ref_mask.shape)
         print("======> Load SAM" )
-        sam_type, sam_ckpt = 'vit_h', 'sam\\sam_vit_h.pth' #学習済みモデルを指定
+        sam_type, sam_ckpt = 'vit_h', os.path.join('sam','sam_vit_h.pth') #学習済みモデルを指定
         # sam_type, sam_ckpt = 'vit_l', 'sam\\sam_vit_l.pth' #学習済みモデルを指定
         # sam_type, sam_ckpt = 'vit_b', 'sam\\sam_vit_b.pth' #学習済みモデルを指定
         

@@ -45,7 +45,7 @@ class CFILLearn():
 
     def loadCSV(self, file_path=""):
         data_csv_path = os.path.join(file_path, "data.csv")
-        with open(data_csv_path, "rt") as f:
+        with open(data_csv_path, "rt", encoding="shift-jis") as f:
             header = next(csv.reader(f))
             reader = csv.reader(f)
             self.data = np.array([row for row in reader])
@@ -58,7 +58,7 @@ class CFILLearn():
 
     def makeJobLib(self, file_path=""):
         bottleneck_csv_path = os.path.join(file_path, "bottleneck.csv") 
-        with open(bottleneck_csv_path) as f:
+        with open(bottleneck_csv_path, encoding="shift-jis") as f:
             reader = csv.reader(f)
             # bottleneck_pose = np.array([row for row in reader])[0,:-1].astype(np.float32)
             # print([row for row in reader][1][:6])
@@ -80,10 +80,13 @@ class CFILLearn():
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
         for pose, image_path in tqdm(zip(poses, image_paths)):
             # print(image_path)
-            basename = os.path.basename(image_path)
+            basename = image_path.split("\\")[-1]
 
             # image = cv2.imread(image_path+".jpg")
             image = cv2.imread(os.path.join(file_path,"image/" + basename+".jpg"))
+            # print("############################")
+            # print(os.path.join(file_path,"image/" + basename+".jpg"))
+            # print("############################")
             # image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             
             if self.use_sam:
@@ -212,7 +215,7 @@ if __name__ == "__main__":
 
     json_file = open(settings_file_path, "r")
     json_dict = json.load(json_file)
-    file_path = os.path.join("CFIL_for_NIP\\train_data", json_dict["train_data_file"])
+    file_path = os.path.join(*["CFIL_for_NIP","train_data", json_dict["train_data_file"]])
  
     cl = CFILLearn(memory_size=json_dict["memory_size"], 
                    batch_size=json_dict["batch_size"], 
