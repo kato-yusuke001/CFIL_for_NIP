@@ -152,14 +152,11 @@ class Agent:
                 self.cfil = ABN128()
             elif self.image_size == 256:
                 self.cfil = ABN256()
-            # print(self.approach_model.state_dict())
             self.cfil.to(self.device)
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
 
             self.use_sam = False
-
-            # self.file_path = "CFIL_for_NIP\\train_data\\20240913_175206_764"
 
             self.train_data_file = None
 
