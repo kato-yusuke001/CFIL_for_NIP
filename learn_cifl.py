@@ -19,7 +19,7 @@ from CFIL_for_NIP.memory import ApproachMemory
 
 from CFIL_for_NIP import utils
 
-class CFILLearn():
+class LearnCFIL():
     def __init__(self, 
                  memory_size=5e4, 
                  batch_size=32, 
@@ -211,13 +211,13 @@ class CFILLearn():
 
 
 if __name__ == "__main__":
-    settings_file_path = "cfil_config.json"
+    settings_file_path = "config_cfil.json"
 
     json_file = open(settings_file_path, "r")
     json_dict = json.load(json_file)
     file_path = os.path.join(*["CFIL_for_NIP","train_data", json_dict["train_data_file"]])
  
-    cl = CFILLearn(memory_size=json_dict["memory_size"], 
+    cl = LearnCFIL(memory_size=json_dict["memory_size"], 
                    batch_size=json_dict["batch_size"], 
                    image_size=json_dict["image_size"], 
                    train_epochs=json_dict["train_epochs"],
