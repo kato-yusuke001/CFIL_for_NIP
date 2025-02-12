@@ -395,14 +395,23 @@ class MoveL_mm(RobotClient):
             dst = self.checkLimit(dst) 
             # ret = rtde_c.moveL(dst, speed=0.15, acceleration=0.5)
             ret = rtde_c.moveL(dst, speed=1.15, acceleration=1.5)
-            if(ret):
-                log_info_output("moveL(mm) success: {}".format(dst))
-                # set_variable(solution, "Server_Connect", 1)
-                return solution.judge_pass()
-            else:
-                log_error_output("moveL(mm) failed")
-                set_variable(solution, "Server_Connect", 0)
-                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+            s_time = time.time()
+            while(ret == False):
+                log_error_output("Failed to moveL(mm)")
+                rtde_c.disconnect()
+                rtde_c = RTDEControlInterface(ROBOT_IP)
+                ret = rtde_c.moveL(dst, speed=1.15, acceleration=1.5)
+                if(time.time()-s_time > TIMEOUT):
+                    log_error_output("Failed to moveL")
+                    return solution.judge_fail()
+            # if(ret):
+            #     log_info_output("moveL(mm) success: {}".format(dst))
+            #     # set_variable(solution, "Server_Connect", 1)
+            #     return solution.judge_pass()
+            # else:
+            #     log_error_output("moveL(mm) failed")
+            #     set_variable(solution, "Server_Connect", 0)
+            #     return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
         
         except Exception as e:
             # 全ての種類のエラーを取得
