@@ -12,6 +12,8 @@ import sys
 sys.path.append("../")
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -74,18 +76,21 @@ class LearnDINOCFIL():
                                                                         facet, bin, thresh)
         
             # TODO:pointを学習データとして使う。DINOの結果を画像として保存する
+            # saving point correspondences as images
+            correspondences_path = root_path / "correspondences"
+            dino_corr.save_correspondences_images(points1, points2, image1_pil, image2_pil, save_path=correspondences_path / f'{Path(ref_image_path).stem}_{Path(image_path).stem}_corresp.png')
 
-            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
-            pose_eb = utils.transform(pose, bottleneck_pose)
-            pose_eb = self.rotvec2euler(pose_eb)
-            # print(pose, pose_eb)
+        #     image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+        #     pose_eb = utils.transform(pose, bottleneck_pose)
+        #     pose_eb = self.rotvec2euler(pose_eb)
+        #     # print(pose, pose_eb)
 
-            if self.initialize == False:
-                self.approach_memory.initial_settings(image, pose)
-                self.initialize = True
+        #     if self.initialize == False:
+        #         self.approach_memory.initial_settings(image, pose)
+        #         self.initialize = True
 
-            self.approach_memory.append(image, pose_eb)
-        self.approach_memory.save_joblib(os.path.join(file_path, "approach_memory.joblib"))
+        #     self.approach_memory.append(image, pose_eb)
+        # self.approach_memory.save_joblib(os.path.join(file_path, "approach_memory.joblib"))
 
     def load_joblib(self, file_path=""):
         self.approach_memory.load_joblib(os.path.join(file_path,"approach_memory.joblib"))
@@ -197,11 +202,9 @@ if __name__ == "__main__":
     cl = LearnDINOCFIL(memory_size=json_dict["memory_size"], 
                    batch_size=json_dict["batch_size"], 
                    image_size=json_dict["image_size"], 
-                   train_epochs=json_dict["train_epochs"],
-                   use_sam=json_dict["use_sam"],
-                   sam_f=json_dict["sam_f"])
+                   train_epochs=json_dict["train_epochs"])
     
-    if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
+    if not os.path.exists(os.path.join(file_path, "approach_memory_dino.joblib")):
         cl.makeJobLib(file_path=file_path)
 
     if os.path.exists(os.path.join(file_path, "approach_memory.joblib")):

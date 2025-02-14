@@ -148,6 +148,46 @@ def draw_correspondences(points1: List[Tuple[float, float]], points2: List[Tuple
         ax2.add_patch(circ2_2)
     return fig1, fig2
 
+def save_correspondences_images(points1: List[Tuple[float, float]], points2: List[Tuple[float, float]],
+                         image1: Image.Image, image2: Image.Image,
+                         save_path: str) -> None:
+    """
+    draw point correspondences on images.
+    :param points1: a list of (y, x) coordinates of image1, corresponding to points2.
+    :param points2: a list of (y, x) coordinates of image2, corresponding to points1.
+    :param image1: a PIL image.
+    :param image2: a PIL image.
+    :return: two figures of images with marked points.
+    """
+    assert len(points1) == len(points2), f"points lengths are incompatible: {len(points1)} != {len(points2)}."
+    num_points = len(points1)
+    plt.figure()
+    fig1, ax1 = plt.subplots(2,1)
+    ax1.axis('off')
+    fig2, ax2 = plt.subplots(2,2)
+    ax2.axis('off')
+    ax1.imshow(image1)
+    ax2.imshow(image2)
+    if num_points > 15:
+        cmap = plt.get_cmap('tab10')
+    else:
+        cmap = ListedColormap(["red", "yellow", "blue", "lime", "magenta", "indigo", "orange", "cyan", "darkgreen",
+                               "maroon", "black", "white", "chocolate", "gray", "blueviolet"])
+    colors = np.array([cmap(x) for x in range(num_points)])
+    radius1, radius2 = 8, 1
+    for point1, point2, color in zip(points1, points2, colors):
+        y1, x1 = point1
+        circ1_1 = plt.Circle((x1, y1), radius1, facecolor=color, edgecolor='white', alpha=0.5)
+        circ1_2 = plt.Circle((x1, y1), radius2, facecolor=color, edgecolor='white')
+        ax1.add_patch(circ1_1)
+        ax1.add_patch(circ1_2)
+        y2, x2 = point2
+        circ2_1 = plt.Circle((x2, y2), radius1, facecolor=color, edgecolor='white', alpha=0.5)
+        circ2_2 = plt.Circle((x2, y2), radius2, facecolor=color, edgecolor='white')
+        ax2.add_patch(circ2_1)
+        ax2.add_patch(circ2_2)
+    
+    plt.savefig(save_path)
 
 def chunk_cosine_sim(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """ Computes cosine similarity between all possible pairs in two sets of vectors.
