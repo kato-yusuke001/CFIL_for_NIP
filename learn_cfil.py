@@ -1,3 +1,4 @@
+import argparse
 import os
 import torch
 import torch.nn as nn
@@ -68,13 +69,18 @@ class LearnCFIL():
 
         if self.use_sam:
             from perSam import PerSAM
-            per_sam = PerSAM(
+            if self.sam_f:
+                per_sam = PerSAM(
+                        # annotation_path="sam\\ref", 
+                        annotation_path=os.path.join(file_path, "ref"), 
+                        output_path=os.path.join(file_path, "masked_images_f"))
+            
+                per_sam.loadSAM_f()
+            else:
+                per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(file_path, "ref"), 
                         output_path=os.path.join(file_path, "masked_images"))
-            if self.sam_f:
-                per_sam.loadSAM_f()
-            else:
                 per_sam.loadSAM()
 
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
@@ -108,10 +114,14 @@ class LearnCFIL():
                 self.initialize = True
 
             self.approach_memory.append(image, pose_eb)
-        self.approach_memory.save_joblib(os.path.join(file_path, "approach_memory.joblib"))
+        return self.approach_memory
+        # if self.sam_f:
+        #     self.approach_memory.save_joblib(os.path.join(file_path, "approach_memory_f.joblib"))
+        # else:
+        #     self.approach_memory.save_joblib(os.path.join(file_path, "approach_memory.joblib"))
 
-    def load_joblib(self, file_path=""):
-        self.approach_memory.load_joblib(os.path.join(file_path,"approach_memory.joblib"))
+    def load_joblib(self, joblib_path=""):
+        self.approach_memory.load_joblib(joblib_path)
 
     def train(self, file_path=""):
         tensorboard_dir = os.path.join(
@@ -209,24 +219,66 @@ class LearnCFIL():
         pose_euler = np.r_[pose, euler]
         return pose_euler
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Facilitate ViT Descriptor point correspondences.')
+    parser.add_argument('--data_dir', type=str, required=True )
+    parser.add_argument('--use_persam_f', default='False', type=str2bool)
+    args = parser.parse_args()
+
     settings_file_path = "config_cfil.json"
 
     json_file = open(settings_file_path, "r")
     json_dict = json.load(json_file)
-    file_path = os.path.join(*["CFIL_for_NIP","train_data", json_dict["train_data_file"]])
+    # file_path = os.path.join(*["CFIL_for_NIP","train_data", json_dict["train_data_file"]])
+    file_path = os.path.join(*["CFIL_for_NIP","train_data", args.data_dir])
  
     cl = LearnCFIL(memory_size=json_dict["memory_size"], 
                    batch_size=json_dict["batch_size"], 
                    image_size=json_dict["image_size"], 
                    train_epochs=json_dict["train_epochs"],
                    use_sam=json_dict["use_sam"],
-                   sam_f=json_dict["sam_f"])
+                #    sam_f=json_dict["sam_f"])
+                    sam_f=args.use_persam_f)
     
-    if not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
-        cl.makeJobLib(file_path=file_path)
-
-    if os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
-        cl.load_joblib(file_path=file_path)
-        cl.train(file_path=file_path)
+    
+    print(args.use_persam_f)
+    if args.use_persam_f:
+        joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
+        if  not os.path.exists(os.path.join(file_path, "approach_memory_f.joblib")):
+            print("make joblib for persam_f")
+            joblib = cl.makeJobLib(file_path=file_path)
+            joblib.save_joblib(joblib_path)
+        else:
+            cl.load_joblib(joblib_path=joblib_path)
+            cl.train(file_path=os.path.join(file_path, "persam_f"))
+    else:
+        joblib_path = os.path.join(file_path, "approach_memory.joblib")
+        if  not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
+            print("make joblib for persam")
+            joblib = cl.makeJobLib(file_path=file_path)
+            joblib.save_joblib(joblib_path)
+        else:
+            cl.load_joblib(joblib_path=joblib_path)
+            cl.train(file_path=os.path.join(file_path, "persam"))
+    
+    # if not json_dict["muti_data"]:
+        # file_paths = json_dict["file_paths"]
+        # if args.use_persam_f:
+        #     for p in file_paths:
+        #         file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
+        #         joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
+        #         cl.load_joblib(joblib_path=joblib_path)
+        
+        # result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
+        # cl.train(file_path=os.path.join(result_path, "persam_f"))
+   

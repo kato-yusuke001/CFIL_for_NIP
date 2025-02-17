@@ -53,7 +53,7 @@ class LearnDINOCFIL():
 
         return poses, image_paths, angles
 
-    def makeJobLib(self, file_path="", num_pairs=10, load_size=224, layer='key', facet='key', bin=True, thresh=0.05):
+    def makeJobLib(self, file_path="", num_pairs=10, load_size=224, layer=9, facet='key', bin=True, thresh=0.05):
         root_path = Path(file_path)
         bottleneck_csv_path = root_path / "bottleneck.csv" 
         with open(bottleneck_csv_path, encoding="shift-jis") as f:
@@ -64,21 +64,25 @@ class LearnDINOCFIL():
         ref_image_path = root_path / "ref" / "masked_image.jpg"
 
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
-        for pose, image_path in tqdm(zip(poses, image_paths)):
-            # print(image_path)
-            basename = image_path.split("\\")[-1]
+        with torch.no_grad():
+            extractor = dino_corr.build_extractor()
+            for pose, image_path in tqdm(zip(poses, image_paths)):
+                # print(image_path)
+                basename = image_path.split("\\")[-1]
 
-            image_path = root_path / "image" / basename+".jpg"
-
-            # compute point correspondences
-            points1, points2, image1_pil, image2_pil = dino_corr.find_correspondences(ref_image_path, image_path,
-                                                                        num_pairs, load_size, layer,
-                                                                        facet, bin, thresh)
-        
-            # TODO:pointを学習データとして使う。DINOの結果を画像として保存する
-            # saving point correspondences as images
-            correspondences_path = root_path / "correspondences"
-            dino_corr.save_correspondences_images(points1, points2, image1_pil, image2_pil, save_path=correspondences_path / f'{Path(ref_image_path).stem}_{Path(image_path).stem}_corresp.png')
+                image_path = root_path / "image" / (basename+".jpg")
+                print(ref_image_path, image_path)
+                # compute point correspondences
+                points1, points2, image1_pil, image2_pil = dino_corr.exec_correspondences(extractor, ref_image_path, image_path,
+                                                                            num_pairs, load_size, layer,
+                                                                            facet, bin, thresh)
+            
+                # TODO:pointを学習データとして使う。DINOの結果を画像として保存する
+                # saving point correspondences as images
+                # correspondences_path = root_path / "correspondences"
+                # if not os.path.exists(correspondences_path):
+                #     os.makedirs(correspondences_path)
+                # dino_corr.save_correspondences_images(points1, points2, image1_pil, image2_pil, save_path=correspondences_path / f'{Path(ref_image_path).stem}_{Path(image_path).stem}_corresp.png')
 
         #     image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
         #     pose_eb = utils.transform(pose, bottleneck_pose)
@@ -193,7 +197,7 @@ class LearnDINOCFIL():
 
 
 if __name__ == "__main__":
-    settings_file_path = "cfil_config.json"
+    settings_file_path = "config_dino_cfil.json"
 
     json_file = open(settings_file_path, "r")
     json_dict = json.load(json_file)
