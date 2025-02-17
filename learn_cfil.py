@@ -250,35 +250,42 @@ if __name__ == "__main__":
                 #    sam_f=json_dict["sam_f"])
                     sam_f=args.use_persam_f)
     
-    
-    print(args.use_persam_f)
-    if args.use_persam_f:
-        joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
-        if  not os.path.exists(os.path.join(file_path, "approach_memory_f.joblib")):
-            print("make joblib for persam_f")
-            joblib = cl.makeJobLib(file_path=file_path)
-            joblib.save_joblib(joblib_path)
-        else:
-            cl.load_joblib(joblib_path=joblib_path)
-            cl.train(file_path=os.path.join(file_path, "persam_f"))
-    else:
-        joblib_path = os.path.join(file_path, "approach_memory.joblib")
-        if  not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
-            print("make joblib for persam")
-            joblib = cl.makeJobLib(file_path=file_path)
-            joblib.save_joblib(joblib_path)
-        else:
-            cl.load_joblib(joblib_path=joblib_path)
-            cl.train(file_path=os.path.join(file_path, "persam"))
-    
-    # if not json_dict["muti_data"]:
-        # file_paths = json_dict["file_paths"]
-        # if args.use_persam_f:
-        #     for p in file_paths:
-        #         file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
-        #         joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
-        #         cl.load_joblib(joblib_path=joblib_path)
+    if json_dict["multi_data"]:
+        file_paths = json_dict["train_data_files"]
+        if args.use_persam_f:
+            for p in file_paths:
+                file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
+                joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
+                cl.load_joblib(joblib_path=joblib_path)
         
-        # result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
-        # cl.train(file_path=os.path.join(result_path, "persam_f"))
-   
+            result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
+            cl.train(file_path=os.path.join(result_path, "persam_f"))
+
+        else:
+            for p in file_paths:
+                file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
+                joblib_path = os.path.join(file_path, "approach_memory.joblib")
+                cl.load_joblib(joblib_path=joblib_path)
+        
+            result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
+            cl.train(file_path=os.path.join(result_path, "persam"))
+    else:
+        print(args.use_persam_f)
+        if args.use_persam_f:
+            joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
+            if  not os.path.exists(os.path.join(file_path, "approach_memory_f.joblib")):
+                print("make joblib for persam_f")
+                joblib = cl.makeJobLib(file_path=file_path)
+                joblib.save_joblib(joblib_path)
+            else:
+                cl.load_joblib(joblib_path=joblib_path)
+                cl.train(file_path=os.path.join(file_path, "persam_f"))
+        else:
+            joblib_path = os.path.join(file_path, "approach_memory.joblib")
+            if  not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
+                print("make joblib for persam")
+                joblib = cl.makeJobLib(file_path=file_path)
+                joblib.save_joblib(joblib_path)
+            else:
+                cl.load_joblib(joblib_path=joblib_path)
+                cl.train(file_path=os.path.join(file_path, "persam"))
