@@ -252,6 +252,14 @@ if __name__ == "__main__":
     
     if json_dict["multi_data"]:
         file_paths = json_dict["train_data_files"]
+        if json_dict["use_sam"] is False:
+            print("no use sam")
+            for p in file_paths:
+                file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
+                approach_memory = cl.makeJobLib(file_path=file_path)
+        
+            result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
+            cl.train(file_path=os.path.join(result_path, "no_sam"))
         if args.use_persam_f:
             for p in file_paths:
                 file_path = os.path.join(*["CFIL_for_NIP","train_data", p])

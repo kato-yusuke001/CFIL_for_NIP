@@ -170,7 +170,7 @@ class Agent:
             if self.train_data_file is None:
                 self.cfil.load_state_dict(torch.load(os.path.join(model_path, "approach_model_final.pth"),map_location=self.device))
             else:
-                self.cfil.load_state_dict(torch.load(os.path.join("CFIL_for_NIP", "train_data", self.train_data_file, "approach_model_final.pth"),map_location=self.device))
+                self.cfil.load_state_dict(torch.load(os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, "approach_model_final.pth"]),map_location=self.device))
             return True
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
@@ -226,6 +226,13 @@ class Agent:
     def loadSAM_f_Model(self,image_path, model_path):
         try:
             from perSam import PerSAM
+            print(image_path, model_path)
+            if self.train_data_file is None:
+                self.output_path = os.path.join(*image_path.split("\\")[:-2], "output_images")
+            else:
+                self.output_path = os.path.join("CFIL_for_NIP", "train_data", self.train_data_file, "test", format(datetime.date.today(), '%Y%m%d'), "output_images")
+            if not os.path.exists(self.output_path):
+                os.makedirs(self.output_path)
             print(image_path, image_path)
             self.per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
@@ -399,13 +406,13 @@ class Agent:
 
     def initialize_all(self):
         self.initialize()
-        self.loadJson()
-        self.loadSAMModel()
+        # self.loadJson()
+        # self.loadSAM_f_Model()
         self.loadTrainedModel()
         # self.initialize_positionDetector()
         return True
 
-    def loadJson(self, path="cfil_config.json"):
+    def loadJson(self, path="config_cfil.json"):
         with open(path, "r") as f:
             json_dict = json.load(f)
 
