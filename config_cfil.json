@@ -7,7 +7,7 @@
     "_train_data_file_tsu":"20241008_114308_366",
     "use_sam":true,
     "sam_f":false,
-    "multi_data":true,
+    "multi_data":false,
     "train_data_files":[
         "20250127_almi",
         "20250127_blue",

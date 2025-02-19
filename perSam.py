@@ -55,8 +55,8 @@ class PerSAM:
         print(ref_image.shape, ref_mask.shape)
         print("======> Load SAM" )
         sam_type, sam_ckpt = 'vit_h', os.path.join('sam','sam_vit_h.pth') #学習済みモデルを指定
-        # sam_type, sam_ckpt = 'vit_l', 'sam\\sam_vit_l.pth' #学習済みモデルを指定
-        # sam_type, sam_ckpt = 'vit_b', 'sam\\sam_vit_b.pth' #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_l', os.path.join('sam','sam_vit_l.pth') #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_b', os.path.join('sam','sam_vit_b.pth') #学習済みモデルを指定
         
         sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
         sam.eval()
@@ -214,8 +214,8 @@ class PerSAM:
         gt_mask = gt_mask.float().unsqueeze(0).flatten(1).cuda()
 
         print("======> Load SAM" )
-        # sam_type, sam_ckpt = 'vit_h', 'sam\\sam_vit_h.pth' #学習済みモデルを指定
-        sam_type, sam_ckpt = 'vit_t', 'sam\\mobile_sam.pt' #学習済みモデルを指定
+        sam_type, sam_ckpt = 'vit_h', os.path.join('sam','sam_vit_h.pth') #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_t', os.path.join('sam','mobile_sam.pt') #学習済みモデルを指定
         sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
         sam.eval()
         self.predictor = SamPredictor(sam)
