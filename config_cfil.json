@@ -4,9 +4,10 @@
     "batch_size":32,
     "train_epochs":10000,
     "train_data_file":"20250127_almi",
-    "use_sam":false,
-    "sam_f":false,
-    "multi_data":true,
+    "use_sam":true,
+    "sam_f":true,
+    "learn_mask_image":false,
+    "multi_data":false,
     "train_data_files":[
         "20250127_almi",
         "20250127_blue",

@@ -57,7 +57,7 @@ class LearnCFIL():
 
         return poses, image_paths, angles
 
-    def makeJobLib(self, file_path=""):
+    def makeJobLib(self, file_path="", learn_mask_image=False):
         bottleneck_csv_path = os.path.join(file_path, "bottleneck.csv") 
         with open(bottleneck_csv_path, encoding="shift-jis") as f:
             reader = csv.reader(f)
@@ -88,12 +88,7 @@ class LearnCFIL():
             # print(image_path)
             basename = image_path.split("\\")[-1]
 
-            # image = cv2.imread(image_path+".jpg")
             image = cv2.imread(os.path.join(file_path,"image/" + basename+".jpg"))
-            # print("############################")
-            # print(os.path.join(file_path,"image/" + basename+".jpg"))
-            # print("############################")
-            # image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             
             if self.use_sam:
                 if self.sam_f:
@@ -101,8 +96,10 @@ class LearnCFIL():
                 else:
                     masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM(image)
                 image = per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
-                # image = per_sam.save_randomback_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
-                # image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+                if learn_mask_image:
+                    image = np.zeros((masks[best_idx].shape[0], masks[best_idx].shape[1], 3), dtype=np.uint8)
+                    image[masks[best_idx], :] = np.array([[0, 0, 128]])
+
 
             image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             pose_eb = utils.transform(pose, bottleneck_pose)
@@ -233,6 +230,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Facilitate ViT Descriptor point correspondences.')
     parser.add_argument('--data_dir', type=str, required=True )
     parser.add_argument('--use_persam_f', default='False', type=str2bool)
+    parser.add_argument('--learn_mask_image', default='False', type=str2bool)
+    parser.add_argument('--test', default='False', type=str2bool)
     args = parser.parse_args()
 
     settings_file_path = "config_cfil.json"
@@ -280,20 +279,23 @@ if __name__ == "__main__":
     else:
         print(args.use_persam_f)
         if args.use_persam_f:
-            joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
-            if  not os.path.exists(os.path.join(file_path, "approach_memory_f.joblib")):
-                print("make joblib for persam_f")
-                joblib = cl.makeJobLib(file_path=file_path)
-                joblib.save_joblib(joblib_path)
+            if args.learn_mask_image:
+                joblib_path = os.path.join(file_path, "approach_memory_f_mask.joblib")
             else:
+                joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
+            if  args.test:
                 cl.load_joblib(joblib_path=joblib_path)
                 cl.train(file_path=os.path.join(file_path, "persam_f"))
+            else:
+                print("make joblib for persam_f")
+                joblib = cl.makeJobLib(file_path=file_path, learn_mask_image=args.learn_mask_image)
+                joblib.save_joblib(joblib_path)
         else:
             joblib_path = os.path.join(file_path, "approach_memory.joblib")
-            if  not os.path.exists(os.path.join(file_path, "approach_memory.joblib")):
+            if  args.test:
+                cl.load_joblib(joblib_path=joblib_path)
+                cl.train(file_path=os.path.join(file_path, "persam"))
+            else:
                 print("make joblib for persam")
                 joblib = cl.makeJobLib(file_path=file_path)
                 joblib.save_joblib(joblib_path)
-            else:
-                cl.load_joblib(joblib_path=joblib_path)
-                cl.train(file_path=os.path.join(file_path, "persam"))
