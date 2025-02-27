@@ -57,7 +57,7 @@ class LearnCFIL():
 
         return poses, image_paths, angles
 
-    def makeJobLib(self, file_path="", learn_mask_image=False):
+    def makeJobLib(self, file_path="", mask_image_only=False):
         bottleneck_csv_path = os.path.join(file_path, "bottleneck.csv") 
         with open(bottleneck_csv_path, encoding="shift-jis") as f:
             reader = csv.reader(f)
@@ -89,6 +89,7 @@ class LearnCFIL():
             basename = image_path.split("\\")[-1]
 
             image = cv2.imread(os.path.join(file_path,"image/" + basename+".jpg"))
+            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             
             if self.use_sam:
                 if self.sam_f:
@@ -96,12 +97,12 @@ class LearnCFIL():
                 else:
                     masks, best_idx, topk_xy, topk_label = per_sam.executePerSAM(image)
                 image = per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
-                if learn_mask_image:
+                if mask_image_only:
                     image = np.zeros((masks[best_idx].shape[0], masks[best_idx].shape[1], 3), dtype=np.uint8)
                     image[masks[best_idx], :] = np.array([[0, 0, 128]])
 
 
-            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+            # image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             pose_eb = utils.transform(pose, bottleneck_pose)
             pose_eb = self.rotvec2euler(pose_eb)
             # print(pose, pose_eb)
@@ -229,9 +230,10 @@ def str2bool(v):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Facilitate ViT Descriptor point correspondences.')
     parser.add_argument('--data_dir', type=str, required=True )
-    parser.add_argument('--use_persam_f', default='False', type=str2bool)
-    parser.add_argument('--learn_mask_image', default='False', type=str2bool)
-    parser.add_argument('--test', default='False', type=str2bool)
+    parser.add_argument('--persam_f', action='store_true')
+    parser.add_argument('--mask_image_only', action='store_true')
+    parser.add_argument('--make_joblib', action='store_true')
+    parser.add_argument('--train', action='store_true')
     args = parser.parse_args()
 
     settings_file_path = "config_cfil.json"
@@ -247,55 +249,48 @@ if __name__ == "__main__":
                    train_epochs=json_dict["train_epochs"],
                    use_sam=json_dict["use_sam"],
                 #    sam_f=json_dict["sam_f"])
-                    sam_f=args.use_persam_f)
+                    sam_f=args.persam_f)
     
     if json_dict["multi_data"]:
         file_paths = json_dict["train_data_files"]
-        if json_dict["use_sam"] is False:
-            print("no use sam")
-            for p in file_paths:
-                file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
-                approach_memory = cl.makeJobLib(file_path=file_path)
+        # if json_dict["use_sam"] is False:
+        #     print("no use sam")
+        #     for p in file_paths:
+        #         file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
+        #         approach_memory = cl.makeJobLib(file_path=file_path)
         
-            result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
-            cl.train(file_path=os.path.join(result_path, "no_sam"))
-        if args.use_persam_f:
-            for p in file_paths:
-                file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
-                joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
-                cl.load_joblib(joblib_path=joblib_path)
+        #     result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
+        #     cl.train(file_path=os.path.join(result_path, "no_sam"))
         
-            result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
-            cl.train(file_path=os.path.join(result_path, "persam_f"))
+        for p in file_paths:
+            file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
+            if args.use_persam_f:
+                task_name = "persam_f"
+            else:
+                task_name = "persam"
+            joblib_path = os.path.join(file_path, f"{task_name}.joblib")
+            cl.load_joblib(joblib_path=joblib_path)
+    
+        result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
+        cl.train(file_path=os.path.join(result_path, task_name))
 
-        else:
-            for p in file_paths:
-                file_path = os.path.join(*["CFIL_for_NIP","train_data", p])
-                joblib_path = os.path.join(file_path, "approach_memory.joblib")
-                cl.load_joblib(joblib_path=joblib_path)
-        
-            result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
-            cl.train(file_path=os.path.join(result_path, "persam"))
     else:
-        print(args.use_persam_f)
-        if args.use_persam_f:
-            if args.learn_mask_image:
-                joblib_path = os.path.join(file_path, "approach_memory_f_mask.joblib")
-            else:
-                joblib_path = os.path.join(file_path, "approach_memory_f.joblib")
-            if  args.test:
-                cl.load_joblib(joblib_path=joblib_path)
-                cl.train(file_path=os.path.join(file_path, "persam_f"))
-            else:
-                print("make joblib for persam_f")
-                joblib = cl.makeJobLib(file_path=file_path, learn_mask_image=args.learn_mask_image)
-                joblib.save_joblib(joblib_path)
+        task_name = "normal"
+        if args.persam_f and args.mask_image_only:
+            task_name = "persam_f_mask_image_only"
+        elif args.persam_f:
+            task_name = "persam_f"
         else:
-            joblib_path = os.path.join(file_path, "approach_memory.joblib")
-            if  args.test:
-                cl.load_joblib(joblib_path=joblib_path)
-                cl.train(file_path=os.path.join(file_path, "persam"))
-            else:
-                print("make joblib for persam")
-                joblib = cl.makeJobLib(file_path=file_path)
-                joblib.save_joblib(joblib_path)
+            NotImplementedError
+
+        print(f"task name: {task_name}")
+        joblib_path = os.path.join(file_path, f"{task_name}.joblib")
+
+        if args.make_joblib:
+            print("make joblib")
+            joblib = cl.makeJobLib(file_path=file_path, mask_image_only=args.mask_image_only)
+            joblib.save_joblib(joblib_path)
+        
+        if args.train:
+            cl.load_joblib(joblib_path=joblib_path)
+            cl.train(file_path=os.path.join(file_path, task_name))
