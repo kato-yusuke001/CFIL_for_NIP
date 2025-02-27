@@ -13,6 +13,18 @@
 #python learn_cfil.py --data_dir 20250129_white --persam_f False
 #python learn_cfil.py --data_dir 20250129_white --persam_f True
 
+python train_cfil.py --data_dir 20250127_almi --persam_f --make_joblib
+python train_cfil.py --data_dir 20250127_blue --persam_f --make_joblib
+python train_cfil.py --data_dir 20250129_black --persam_f --make_joblib
+python train_cfil.py --data_dir 20250129_mirror --persam_f --make_joblib
+python train_cfil.py --data_dir 20250129_white --persam_f --make_joblib
+
+python train_cfil.py --data_dir 20250127_almi --persam_f --train
+python train_cfil.py --data_dir 20250127_blue --persam_f --train
+python train_cfil.py --data_dir 20250129_black --persam_f --train
+python train_cfil.py --data_dir 20250129_mirror --persam_f --train
+python train_cfil.py --data_dir 20250129_white --persam_f --train
+
 python train_cfil.py --data_dir 20250127_almi --persam_f --mask_image_only --make_joblib
 python train_cfil.py --data_dir 20250127_blue --persam_f --mask_image_only --make_joblib
 python train_cfil.py --data_dir 20250129_black --persam_f --mask_image_only --make_joblib

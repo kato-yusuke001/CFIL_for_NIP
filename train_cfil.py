@@ -146,12 +146,13 @@ class LearnCFIL():
         # train approach
         self.approach_model.train()
 
-        rng = np.random.default_rng()
         RandomInvert = transforms.RandomInvert(p=0.5)
+        ColorJitter = transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5)
         for epoch in tqdm(range(self.train_epochs)):
             sample = self.approach_memory.sample(self.batch_size)
             imgs = sample['images_seq']
             imgs = RandomInvert(imgs)
+            imgs = ColorJitter(imgs)
             positions_eb = sample['positions_seq']
             rx, ax, att = self.approach_model(imgs)
 
