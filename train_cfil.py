@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torchvision import transforms as transforms
 import numpy as np
 import cv2
 from tqdm import tqdm
@@ -137,26 +138,33 @@ class LearnCFIL():
             self.approach_model = ABN256()
         
         self.approach_model.to(self.device)
-        self.reg_approach_criterion = nn.MSELoss()
-        self.att_approach_criterion = nn.MSELoss()
+        # self.reg_approach_criterion = nn.MSELoss()
+        # self.att_approach_criterion = nn.MSELoss()
+        self.reg_approach_criterion = MSE_decay()
+        self.att_approach_criterion = MSE_decay()
         self.approach_optimizer = optim.Adam(self.approach_model.parameters(), lr=0.0001)
         # train approach
         self.approach_model.train()
+
+        rng = np.random.default_rng()
+        RandomInvert = transforms.RandomInvert(p=0.5)
         for epoch in tqdm(range(self.train_epochs)):
             sample = self.approach_memory.sample(self.batch_size)
             imgs = sample['images_seq']
+            imgs = RandomInvert(imgs)
             positions_eb = sample['positions_seq']
-            self.approach_optimizer.zero_grad()
             rx, ax, att = self.approach_model(imgs)
 
             labels = positions_eb
             reg_loss = self.reg_approach_criterion(rx, labels)
             att_loss = self.att_approach_criterion(ax, labels)
+
+            self.approach_optimizer.zero_grad()
             (reg_loss+att_loss).backward()
             # loss = self.approach_criterion(output, labels)
             # loss.backward()
             self.approach_optimizer.step()
-            if epoch % 1000 == 0 and epoch > 0:
+            if (epoch % (self.train_epochs//10) == 0 and epoch > 0) or epoch == (self.train_epochs-1):
                 print("epoch: {}".format(epoch) )
                 print(" pos: ", positions_eb[0])
                 print(" reg out_put: ", rx.detach()[0])
@@ -226,6 +234,16 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
+    
+
+class MSE_decay(torch.nn.Module):
+    def __init__(self):
+        super(MSE_decay, self).__init__()
+        self.decay = torch.tensor([1,1,0,0,0,100]).to("cuda")
+    def forward(self, pred, true):
+        return torch.mean(
+            torch.einsum('j,ik->ik', (self.decay, (pred - true) * (pred - true))))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Facilitate ViT Descriptor point correspondences.')

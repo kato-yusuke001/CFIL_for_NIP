@@ -59,6 +59,7 @@ class ABN128(BaseNetwork):
         ax = self.wgp(ax)
     
         rx = x * att
+        rx = rx + x
         rx = rx.reshape(rx.size(0), -1)
         rx = self.regression(rx)
         ax = ax.reshape(ax.size(0), -1)
@@ -118,6 +119,7 @@ class ABN256(BaseNetwork):
         ax = self.wgp(ax)
     
         rx = x * att
+        rx = rx + x
         rx = rx.reshape(rx.size(0), -1)
         rx = self.regression(rx)
         ax = ax.reshape(ax.size(0), -1)
