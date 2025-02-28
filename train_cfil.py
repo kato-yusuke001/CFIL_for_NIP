@@ -58,7 +58,7 @@ class LearnCFIL():
 
         return poses, image_paths, angles
 
-    def makeJobLib(self, file_path="", mask_image_only=False):
+    def makeJobLib(self, task_name="", file_path="", mask_image_only=False, random_background=False):
         bottleneck_csv_path = os.path.join(file_path, "bottleneck.csv") 
         with open(bottleneck_csv_path, encoding="shift-jis") as f:
             reader = csv.reader(f)
@@ -74,14 +74,14 @@ class LearnCFIL():
                 per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(file_path, "ref"), 
-                        output_path=os.path.join(file_path, "masked_images_f"))
+                        output_path=os.path.join(file_path, task_name, "masked_images_f"))
             
                 per_sam.loadSAM_f()
             else:
                 per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(file_path, "ref"), 
-                        output_path=os.path.join(file_path, "masked_images"))
+                        output_path=os.path.join(file_path, task_name, "masked_images"))
                 per_sam.loadSAM()
 
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
@@ -101,6 +101,8 @@ class LearnCFIL():
                 if mask_image_only:
                     image = np.zeros((masks[best_idx].shape[0], masks[best_idx].shape[1], 3), dtype=np.uint8)
                     image[masks[best_idx], :] = np.array([[0, 0, 128]])
+                if random_background:
+                    image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
 
 
             # image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
@@ -251,6 +253,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_dir', type=str, required=True )
     parser.add_argument('--persam_f', action='store_true')
     parser.add_argument('--mask_image_only', action='store_true')
+    parser.add_argument('--random_background', action='store_true')
     parser.add_argument('--make_joblib', action='store_true')
     parser.add_argument('--train', action='store_true')
     args = parser.parse_args()
@@ -295,7 +298,11 @@ if __name__ == "__main__":
 
     else:
         task_name = "normal"
-        if args.persam_f and args.mask_image_only:
+        if args.persam_f and args.mask_image_only and args.random_background:
+            task_name = "persam_f_mask_image_only_random_background"
+        elif args.persam_f and args.random_background:
+            task_name = "persam_f_random_background"
+        elif args.persam_f and args.mask_image_only:
             task_name = "persam_f_mask_image_only"
         elif args.persam_f:
             task_name = "persam_f"
@@ -305,9 +312,13 @@ if __name__ == "__main__":
         print(f"task name: {task_name}")
         joblib_path = os.path.join(file_path, f"{task_name}.joblib")
 
+        save_dir = os.path.join(file_path, task_name)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
         if args.make_joblib:
             print("make joblib")
-            joblib = cl.makeJobLib(file_path=file_path, mask_image_only=args.mask_image_only)
+            joblib = cl.makeJobLib(task_name=task_name, file_path=file_path, mask_image_only=args.mask_image_only, random_background=args.random_background)
             joblib.save_joblib(joblib_path)
         
         if args.train:

@@ -151,6 +151,7 @@ class PerSAM:
     def save_randomback_image(self, final_mask, test_image, name):
         mask_colors = np.random.randint(0, 255, (final_mask.shape[0], final_mask.shape[1], 3))
         mask_colors[final_mask, :] = test_image[final_mask, :]
+        print(os.path.join(self.output_path, name))
         cv2.imwrite(os.path.join(self.output_path, name), mask_colors)
         return mask_colors
     
