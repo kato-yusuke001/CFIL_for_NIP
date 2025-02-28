@@ -59,8 +59,9 @@ def initialise():
 @app.route("/loadTrainedModel", methods=["POST"])
 def loadTrainedModel():
     global cfil_agent
-    model_path = request.form["model_path"]
-    ret = cfil_agent.loadTrainedModel(model_path)
+    file_path = request.form["file_path"]
+    task_name = request.form["task_name"]
+    ret = cfil_agent.loadTrainedModel(file_path, task_name)
     if(ret):
         log_meesage("Trained CFIL Model Loaded")
         return "Success"
@@ -93,8 +94,9 @@ def Estimate():
 def loadSAM_f_Model():
     global cfil_agent
     image_save_path = request.form["image_save_path"]
-    model_path = request.form["model_path"]
-    ret = cfil_agent.loadSAM_f_Model(image_save_path, model_path)
+    file_path = request.form["file_path"]
+    task_name = request.form["task_name"]
+    ret = cfil_agent.loadSAM_f_Model(image_save_path, file_path, task_name)
     if(ret):
         log_meesage("SAM_f Model Loaded")
         return "Success"
@@ -165,10 +167,10 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
              
-    def loadTrainedModel(self, model_path=None):
+    def loadTrainedModel(self, model_path=None, task_name=None):
         try:
             if self.train_data_file is None:
-                self.cfil.load_state_dict(torch.load(os.path.join(model_path, "approach_model_final.pth"),map_location=self.device))
+                self.cfil.load_state_dict(torch.load(os.path.join(model_path, task_name, "approach_model_final.pth"),map_location=self.device))
             else:
                 self.cfil.load_state_dict(torch.load(os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, "approach_model_final.pth"]),map_location=self.device))
             return True
@@ -223,20 +225,17 @@ class Agent:
 
         return output[0].tolist()
     
-    def loadSAM_f_Model(self,image_path, model_path):
+    def loadSAM_f_Model(self,image_path, file_path, task_name):
         try:
             from perSam import PerSAM
-            print(image_path, model_path)
-            if self.train_data_file is None:
-                self.output_path = os.path.join(*image_path.split("\\")[:-2], "output_images")
-            else:
-                self.output_path = os.path.join("CFIL_for_NIP", "train_data", self.train_data_file, "test", format(datetime.date.today(), '%Y%m%d'), "output_images")
+            print(f"image_path: {image_path}, file_path: {file_path}, task_name: {task_name}")
+           
+            self.output_path = os.path.join(file_path, task_name, "test", format(datetime.today(), '%Y%m%d'), "output_images")
             if not os.path.exists(self.output_path):
                 os.makedirs(self.output_path)
-            print(image_path, image_path)
             self.per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
-                        annotation_path=os.path.join(model_path, "ref"), 
+                        annotation_path=os.path.join(file_path, "ref"), 
                         output_path=os.path.join(image_path, "masked_images"))
             self.per_sam.loadSAM_f()
             self.use_sam = True
@@ -246,25 +245,31 @@ class Agent:
             return False
         
     def estimate_from_image_f(self, image_path):
-        image = cv2.imread(image_path+".jpg")
-        image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
-        if self.use_sam:
-            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM_f(image)
-            image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
-            self.per_sam.save_heatmap(image_path.split("\\")[-1]+"_similarity.jpg")
+        try:
+            image = cv2.imread(image_path+".jpg")
+            image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+            if self.use_sam:
+                heatmap = False
+                masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM_f(image, show_heatmap=heatmap)
+                image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
+                if heatmap:
+                    self.per_sam.save_heatmap(image_path.split("\\")[-1]+"_similarity.jpg")
 
-        image = np.transpose(image, [2, 0, 1])
-        image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
-        image_tensor = torch.unsqueeze(image_tensor, 0)
-        self.cfil.eval()
-        with torch.no_grad():
-            # appraoch
-            output_tensor, _, att = self.cfil(image_tensor)
-            output = output_tensor.to('cpu').detach().numpy().copy()
-            self.save_attention_fig(image_tensor, att, image_path)
-
-        return output[0].tolist()
+            image = np.transpose(image, [2, 0, 1])
+            image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
+            image_tensor = torch.unsqueeze(image_tensor, 0)
+            self.cfil.eval()
+            with torch.no_grad():
+                # appraoch
+                output_tensor, _, att = self.cfil(image_tensor)
+                output = output_tensor.to('cpu').detach().numpy().copy()
+                self.save_attention_fig(image_tensor, att, image_path.split("\\")[-1])
+            return output[0].tolist()
     
+        except Exception as e:
+            log_error("{} : {}".format(type(e), e))
+
+            return False    
 
     def save_attention_fig(self, inputs, attention, image_num):
         def min_max(x, axis=None):
@@ -278,7 +283,6 @@ class Agent:
             d_inputs = inputs.data.cpu()
             d_inputs = d_inputs.numpy()
             in_b, in_c, in_y, in_x = inputs.shape
-            # print(d_inputs, c_att)
             for item_img, item_att in zip(d_inputs, c_att):
                 v_img = item_img.transpose((1,2,0))* 255
                 resize_att = cv2.resize(item_att[0], (in_x, in_y))

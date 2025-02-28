@@ -149,9 +149,10 @@ class Initialize(NIPClient):
 class LoadTrainedModel(NIPClient):
     def execute(self, solution):
         try:
-            model_path = get_variable(solution, "model_path")[0]
-            log_meesage("model_path: {}".format(model_path))
-            res = request_post(solution, _act="loadTrainedModel", _data="model_path", _value=model_path)
+            file_path = get_variable(solution, "file_path")[0]
+            task_name = get_variable(solution, "task_name")[0]           
+            log_meesage("model_path: {}".format(file_path))
+            res = request_posts(solution, _act="loadTrainedModel", _data=["file_path", "task_name"], _value=[file_path, task_name])
             if(check_res(res)):
                 log_meesage("Trained Model Loaded")
                 return solution.judge_pass()
@@ -253,10 +254,11 @@ class Estimate(NIPClient):
 class LoadSAM_f_Model(NIPClient):
     def execute(self, solution):
         try:
-            image_save_path = get_variable(solution, "save_masked_image_path")[0]
-            model_path = get_variable(solution, "model_path")[0]
+            image_save_path = get_variable(solution, "result_path")[0]
+            file_path = get_variable(solution, "file_path")[0]
+            task_name = get_variable(solution, "task_name")[0]
             log_meesage("sam image_save_path: {}".format(image_save_path))
-            res = request_posts(solution, _act="loadSAM_f_Model", _data=["image_save_path", "model_path"], _value=[image_save_path,model_path])
+            res = request_posts(solution, _act="loadSAM_f_Model", _data=["image_save_path", "file_path", "task_name"], _value=[image_save_path,file_path, task_name])
             if(check_res(res)):
                 log_meesage("SAM_f Model Loaded")
                 return solution.judge_pass()
@@ -307,7 +309,7 @@ class Estimate_f(NIPClient):
 
         try:
             image_path = get_variable(solution, "image_path")[0]
-            log_meesage("model_path: {}".format(image_path))
+            log_meesage("image_path: {}".format(image_path))
             res = request_post(solution, _act="estimate_f", _data="image_path", _value=image_path)
             if(check_res(res)):
                 output = eval(res.text)
