@@ -306,7 +306,7 @@ if __name__ == "__main__":
         elif args.persam_f:
             task_name = "persam_f"
         else:
-            task_name = "noramal"
+            task_name = "normal"
 
         print(f"task name: {task_name}")
         joblib_path = os.path.join(file_path, f"{task_name}.joblib")
