@@ -13,26 +13,44 @@
 #python learn_cfil.py --data_dir 20250129_white --persam_f False
 #python learn_cfil.py --data_dir 20250129_white --persam_f True
 
-python train_cfil.py --data_dir 20250127_almi --persam_f --make_joblib --random_background
-python train_cfil.py --data_dir 20250129_black --persam_f --make_joblib --random_background
-python train_cfil.py --data_dir 20250127_blue --persam_f --make_joblib --random_background
-python train_cfil.py --data_dir 20250129_mirror --persam_f --make_joblib --random_background
-python train_cfil.py --data_dir 20250129_white --persam_f --make_joblib --random_background
+# python train_cfil.py --data_dir 20250127_almi --persam_f --make_joblib --random_background
+# python train_cfil.py --data_dir 20250129_black --persam_f --make_joblib --random_background
+# python train_cfil.py --data_dir 20250127_blue --persam_f --make_joblib --random_background
+# python train_cfil.py --data_dir 20250129_mirror --persam_f --make_joblib --random_background
+# python train_cfil.py --data_dir 20250129_white --persam_f --make_joblib --random_background
 
-python train_cfil.py --data_dir 20250127_almi --persam_f --train --random_background
-python train_cfil.py --data_dir 20250127_blue --persam_f --train --random_background
-python train_cfil.py --data_dir 20250129_black --persam_f --train --random_background
-python train_cfil.py --data_dir 20250129_mirror --persam_f --train --random_background
-python train_cfil.py --data_dir 20250129_white --persam_f --train --random_background
+# python train_cfil.py --data_dir 20250127_almi --persam_f --train --random_background
+# python train_cfil.py --data_dir 20250127_blue --persam_f --train --random_background
+# python train_cfil.py --data_dir 20250129_black --persam_f --train --random_background
+# python train_cfil.py --data_dir 20250129_mirror --persam_f --train --random_background
+# python train_cfil.py --data_dir 20250129_white --persam_f --train --random_background
 
-python train_cfil.py --data_dir 20250127_almi --persam_f --mask_image_only --make_joblib --random_background
-python train_cfil.py --data_dir 20250127_blue --persam_f --mask_image_only --make_joblib --random_background
-python train_cfil.py --data_dir 20250129_black --persam_f --mask_image_only --make_joblib --random_background
-python train_cfil.py --data_dir 20250129_mirror --persam_f --mask_image_only --make_joblib --random_background
-python train_cfil.py --data_dir 20250129_white --persam_f --mask_image_only --make_joblib --random_background
+# python train_cfil.py --data_dir 20250127_almi --persam_f --mask_image_only --make_joblib --random_background
+# python train_cfil.py --data_dir 20250127_blue --persam_f --mask_image_only --make_joblib --random_background
+# python train_cfil.py --data_dir 20250129_black --persam_f --mask_image_only --make_joblib --random_background
+# python train_cfil.py --data_dir 20250129_mirror --persam_f --mask_image_only --make_joblib --random_background
+# python train_cfil.py --data_dir 20250129_white --persam_f --mask_image_only --make_joblib --random_background
 
-python train_cfil.py --data_dir 20250127_almi --persam_f --mask_image_only --train --random_background
-python train_cfil.py --data_dir 20250127_blue --persam_f --mask_image_only --train --random_background
-python train_cfil.py --data_dir 20250129_black --persam_f --mask_image_only --train --random_background
-python train_cfil.py --data_dir 20250129_mirror --persam_f --mask_image_only --train --random_background
-python train_cfil.py --data_dir 20250129_white --persam_f --mask_image_only --train --random_background
+# python train_cfil.py --data_dir 20250127_almi --persam_f --mask_image_only --train --random_background
+# python train_cfil.py --data_dir 20250127_blue --persam_f --mask_image_only --train --random_background
+# python train_cfil.py --data_dir 20250129_black --persam_f --mask_image_only --train --random_background
+# python train_cfil.py --data_dir 20250129_mirror --persam_f --mask_image_only --train --random_background
+# python train_cfil.py --data_dir 20250129_white --persam_f --mask_image_only --train --random_background
+
+python train_cfil.py --data_dir 20250127_almi --make_joblib --train
+python train_cfil.py --data_dir 20250129_black --make_joblib --train
+python train_cfil.py --data_dir 20250127_blue --make_joblib --train
+python train_cfil.py --data_dir 20250129_mirror --make_joblib --train
+python train_cfil.py --data_dir 20250129_white --make_joblib --train
+
+python train_cfil.py --data_dir 20250127_almi --make_joblib --train --persam_f
+python train_cfil.py --data_dir 20250129_black --make_joblib --train --persam_f
+python train_cfil.py --data_dir 20250127_blue --make_joblib --train --persam_f
+python train_cfil.py --data_dir 20250129_mirror --make_joblib --train --persam_f
+python train_cfil.py --data_dir 20250129_white --make_joblib --train --persam_f
+
+python train_cfil.py --data_dir 20250127_almi --make_joblib --train --persam_f --mask_image_only
+python train_cfil.py --data_dir 20250129_black --make_joblib --train --persam_f --mask_image_only
+python train_cfil.py --data_dir 20250127_blue --make_joblib --train --persam_f --mask_image_only
+python train_cfil.py --data_dir 20250129_mirror --make_joblib --train --persam_f --mask_image_only
+python train_cfil.py --data_dir 20250129_white --make_joblib --train --persam_f --mask_image_only

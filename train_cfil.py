@@ -182,7 +182,7 @@ class LearnCFIL():
             if (epoch+1) % 2000 == 0 or epoch == 0:
                 time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
                 self.save_attention_fig(imgs[:10], att[:10], time_stamp, file_path, name="approach_epoch_"+str(epoch+1))  
-       
+                torch.save(self.approach_model.state_dict(), os.path.join(file_path, f"approach_model_{str(epoch+1)}.pth"))
         torch.save(self.approach_model.state_dict(), os.path.join(file_path, "approach_model_final.pth"))
 
     def min_max(self, x, axis=None):
@@ -269,9 +269,8 @@ if __name__ == "__main__":
                    batch_size=json_dict["batch_size"], 
                    image_size=json_dict["image_size"], 
                    train_epochs=json_dict["train_epochs"],
-                   use_sam=json_dict["use_sam"],
-                #    sam_f=json_dict["sam_f"])
-                    sam_f=args.persam_f)
+                   use_sam=args.persam_f,
+                   sam_f=args.persam_f)
     
     if json_dict["multi_data"]:
         file_paths = json_dict["train_data_files"]
@@ -307,7 +306,7 @@ if __name__ == "__main__":
         elif args.persam_f:
             task_name = "persam_f"
         else:
-            NotImplementedError
+            task_name = "noramal"
 
         print(f"task name: {task_name}")
         joblib_path = os.path.join(file_path, f"{task_name}.joblib")
