@@ -150,9 +150,10 @@ class LoadTrainedModel(NIPClient):
     def execute(self, solution):
         try:
             file_path = get_variable(solution, "file_path")[0]
-            task_name = get_variable(solution, "task_name")[0]           
+            task_name = get_variable(solution, "task_name")[0]    
+            epoch = get_variable(solution, "epoch")[0]           
             log_meesage("model_path: {}".format(file_path))
-            res = request_posts(solution, _act="loadTrainedModel", _data=["file_path", "task_name"], _value=[file_path, task_name])
+            res = request_posts(solution, _act="loadTrainedModel", _data=["file_path", "task_name", "epoch"], _value=[file_path, task_name, epoch])
             if(check_res(res)):
                 log_meesage("Trained Model Loaded")
                 return solution.judge_pass()

@@ -61,7 +61,8 @@ def loadTrainedModel():
     global cfil_agent
     file_path = request.form["file_path"]
     task_name = request.form["task_name"]
-    ret = cfil_agent.loadTrainedModel(file_path, task_name)
+    epoch = request.form["epoch"]
+    ret = cfil_agent.loadTrainedModel(file_path, task_name, epoch)
     if(ret):
         log_meesage("Trained CFIL Model Loaded")
         return "Success"
@@ -167,12 +168,13 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
              
-    def loadTrainedModel(self, model_path=None, task_name=None):
+    def loadTrainedModel(self, model_path=None, task_name=None, epoch=None):
         try:
             if self.train_data_file is None:
                 self.cfil.load_state_dict(torch.load(os.path.join(model_path, task_name, "approach_model_final.pth"),map_location=self.device))
             else:
-                self.cfil.load_state_dict(torch.load(os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, "approach_model_final.pth"]),map_location=self.device))
+                # self.cfil.load_state_dict(torch.load(os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, "approach_model_final.pth"]),map_location=self.device))
+                self.cfil.load_state_dict(torch.load(os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, f"approach_model_{epoch}.pth"]),map_location=self.device))
             return True
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
