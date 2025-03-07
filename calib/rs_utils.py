@@ -12,6 +12,7 @@ class RealSense:
         ctx = rs.context()
         devices = ctx.query_devices()
         self.rs_num = devices.size()
+        print("Number of connected RealSense devices:", self.rs_num)
         self.pipeline, self.config, self.profile = [], [], []
         self.color_sensors, self.depth_sensors = [], []
         self.color_intrinsics, self.depth_intrinsics = [], []
@@ -22,11 +23,12 @@ class RealSense:
         else:
             self.crop_settings = [{
                 "crop_size": min(width, height),
-                "crop_size_x:": width,
-                "crop_size_y:": height,
+                "crop_size_x": width,
+                "crop_size_y": height,
                 "crop_center_x": int(width / 2),
                 "crop_center_y": int(height / 2)}] * self.rs_num
             print("##################################################")
+        print("crop_settings:", self.crop_settings)
         for i in range(self.rs_num):
             self.pipeline.append(rs.pipeline())
             # initialize streaming
@@ -224,6 +226,9 @@ if __name__ == "__main__":
     #     "width": 640, "height": 360, "fps": 90, "clipping_distance": 1.0,
     #     "crop_settings": [{"crop_size": 224, "crop_center_x": 320, "crop_center_y": 180}]}
 
+    # D405 nishikadoma
+    rs_settings= {"width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
+                  "crop_settings":[{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]}
 
     # Start realsense pipeline
     rs = RealSense(**rs_settings)

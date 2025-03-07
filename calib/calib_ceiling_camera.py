@@ -27,7 +27,8 @@ class CalibCeilingCamera:
         cam_settings = {"width": 640, "height": 480, "fps": 30, "clipping_distance": 0.2}
         
         crop_settings = False
-        crop_settings = [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]
+        # crop_settings = [{"crop_size": 240, "crop_center_x": 320, "crop_center_y": 240}]
+        crop_settings = [{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]
         self.cam = RealSense(**cam_settings, crop_settings=crop_settings)
 
         self.cameraMatrix = self.cam.cameraMatrix_woCrop[self.camera_id]
@@ -134,7 +135,7 @@ class CalibCeilingCamera:
             ratio.append([diff_X/diff_x, diff_Y/diff_y])
         ratio = np.average(ratio, axis=0)
         print("ratio:", ratio)
-        np.save("ratio.npy", ratio)
+        # np.save("ratio.npy", ratio)
 
         # check
         target_id = 3
@@ -201,6 +202,6 @@ class CalibCeilingCamera:
 
 if __name__ == "__main__":
     calib = CalibCeilingCamera()
-    calib.calibration()
+    # calib.calibration()
     calib.force_calib()
     calib.cam.close()
