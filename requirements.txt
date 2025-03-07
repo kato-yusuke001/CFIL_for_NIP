@@ -12,5 +12,7 @@ matplotlib
 tensorboard
 pytransform3d
 pyrealsense2
+plotly
+ipywidgets
 
 git+https://github.com/facebookresearch/segment-anything.git
