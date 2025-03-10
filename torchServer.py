@@ -154,7 +154,7 @@ class Agent:
             if self.image_size == 128:
                 self.cfil = ABN128()
             elif self.image_size == 256:
-                self.cfil = ABN256()
+                self.cfil = ABN256(output_size=3)
             self.cfil.to(self.device)
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)

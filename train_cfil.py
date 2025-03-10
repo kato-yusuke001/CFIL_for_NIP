@@ -92,7 +92,7 @@ class LearnCFIL():
                 per_sam.loadSAM()
 
         poses, image_paths, angles =  self.loadCSV(file_path=file_path)
-        for pose, image_path in tqdm(zip(poses, image_paths)):
+        for pose, image_path, angle in tqdm(zip(poses, image_paths, angles)):
             # print(image_path)
             basename = image_path.split("\\")[-1]
 
@@ -120,10 +120,11 @@ class LearnCFIL():
             # print(pose, pose_eb)
 
             if self.initialize == False:
-                self.approach_memory.initial_settings(image, np.array([pose_eb[0], pose_eb[1], pose_eb[5]]))
+                self.approach_memory.initial_settings(image, np.array([pose_eb[0], pose_eb[1], angle]))
+                # self.approach_memory.initial_settings(image, np.array([pose_eb[0], pose_eb[1], pose_eb[5]]))
                 self.initialize = True
 
-            self.approach_memory.append(image, np.array([pose_eb[0], pose_eb[1], pose_eb[5]]))
+            self.approach_memory.append(image, np.array([pose_eb[0], pose_eb[1], angle]))
         return self.approach_memory
         # if self.sam_f:
         #     self.approach_memory.save_joblib(os.path.join(file_path, "approach_memory_f.joblib"))
@@ -150,10 +151,10 @@ class LearnCFIL():
             self.approach_model = ABN256(output_size=3)
         
         self.approach_model.to(self.device)
-        # self.reg_approach_criterion = nn.MSELoss()
-        # self.att_approach_criterion = nn.MSELoss()
-        self.reg_approach_criterion = MSE_decay()
-        self.att_approach_criterion = MSE_decay()
+        self.reg_approach_criterion = nn.MSELoss()
+        self.att_approach_criterion = nn.MSELoss()
+        # self.reg_approach_criterion = MSE_decay()
+        # self.att_approach_criterion = MSE_decay()
         self.approach_optimizer = optim.Adam(self.approach_model.parameters(), lr=0.0001)
         # train approach
         self.approach_model.train()
@@ -179,9 +180,10 @@ class LearnCFIL():
             self.approach_optimizer.step()
             if (epoch % (self.train_epochs//10) == 0 and epoch > 0) or epoch == (self.train_epochs-1):
                 print("epoch: {}".format(epoch) )
-                print(" pos: ", positions_eb[0])
+                print(" pos: ", positions_eb[0].detach())
                 print(" reg out_put: ", rx.detach()[0])
                 print(" att out_put: ", ax.detach()[0])
+                print("  sub mean: ", abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0))  
             
             if epoch % 100 == 0:
                 self.writer.add_scalar(
@@ -209,7 +211,8 @@ class LearnCFIL():
         self.approach_model = CNN256(output_size=3)
         
         self.approach_model.to(self.device)
-        self.reg_approach_criterion = MSE_decay()
+        self.reg_approach_criterion = nn.MSELoss()
+        # self.reg_approach_criterion = MSE_decay()
         self.approach_optimizer = optim.Adam(self.approach_model.parameters(), lr=0.0001)
         # train approach
         self.approach_model.train()
@@ -233,8 +236,9 @@ class LearnCFIL():
             self.approach_optimizer.step()
             if (epoch % (self.train_epochs//10) == 0 and epoch > 0) or epoch == (self.train_epochs-1):
                 print("epoch: {}".format(epoch) )
-                print(" pos: ", positions_eb[0])
+                print(" pos: ", positions_eb.detach()[0])
                 print(" reg out_put: ", rx.detach()[0])
+                print("  sub mean: ", abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0))  
             
             if epoch % 100 == 0:
                 self.writer.add_scalar(

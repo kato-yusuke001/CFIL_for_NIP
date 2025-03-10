@@ -307,6 +307,17 @@ class Estimate_f(NIPClient):
             pose_rotvec = np.r_[pose, rotvec]
 
             return pose_rotvec
+        
+        def rotate(pose, angles, order="xyz"):
+            rot = Rotation.from_euler(order, angles)
+            pose_rotvec = Rotation.from_rotvec(pose[3:])
+
+            result_rot = rot * pose_rotvec
+            result_rotvec = result_rot.as_rotvec()
+            
+            result_pose = np.r_[pose[:3], result_rotvec]
+
+            return result_pose
 
         try:
             image_path = get_variable(solution, "image_path")[0]
@@ -316,17 +327,14 @@ class Estimate_f(NIPClient):
                 output = eval(res.text)
                 # position_eb = [output[0], output[1], output[2], output[3], output[4], output[5]]
                 # position_eb = [output[0], output[1], output[2], 0.0, 0.0, output[5]]
-                position_eb = [output[0], output[1], 0.0, 0.0, 0.0, output[3]]
-                position_eb = euler2rotvec(position_eb)
+                # position_eb = [output[0], output[1], 0.0, 0.0, 0.0, output[3]]
+                # position_eb = euler2rotvec(position_eb)
+                position_eb = [output[0], output[1], 0.0, 0.0, 0.0, 0.0]
+                
                 position_re = get_variable(solution, "current_robot_pose")
-                # position_re[0] *= 1000
-                # position_re[1] *= 1000
-                # position_re[2] *= 1000
                 print(position_eb, position_re)
-                position_rb = reverse_transform(position_re, position_eb) 
-                # position_rb[0] /= 1000.
-                # position_rb[1] /= 1000.
-                # position_rb[2] /= 1000.
+                position_rb = reverse_transform(position_re, position_eb)
+                position_rb = rotate(position_rb, [0, 0, output[2]])
                 set_variable(solution, "estimated_pose", position_rb)
                 log_meesage("Estimation Completed {}".format(position_rb))
                 return solution.judge_pass()
