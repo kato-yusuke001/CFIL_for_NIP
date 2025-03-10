@@ -323,10 +323,21 @@ class SetTCP_mm(RobotClient):
             tcp[2] /= 1000.0
             # tcpの設定
             ret = rtde_c.setTcp(tcp)
-            if(ret):
-                return solution.judge_pass()
-            else:
-                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える  
+            s_time = time.time()
+            while(ret == False):
+                log_error_output("Failed to setTCP(mm)")
+                rtde_c.disconnect()
+                rtde_c = RTDEControlInterface(ROBOT_IP)
+                ret = rtde_c.setTcp(tcp)
+                if(time.time()-s_time > TIMEOUT):
+                    log_error_output("Failed to setTCP")
+                    return solution.judge_fail()
+            log_info_output("setTCP(mm) success: {}".format(tcp))
+            return solution.judge_pass()
+            # if(ret):
+            #     return solution.judge_pass()
+            # else:
+            #     return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える  
 
         except Exception as e:
             log_error_output("{} : {}".format(type(e), e))

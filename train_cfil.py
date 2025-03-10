@@ -16,7 +16,7 @@ sys.path.append("../")
 
 from torch.utils.tensorboard import SummaryWriter
 
-from CFIL_for_NIP.network import ABN128, ABN256
+from CFIL_for_NIP.network import ABN128, ABN256, CNN256
 from CFIL_for_NIP.memory import ApproachMemory
 
 from CFIL_for_NIP import utils
@@ -76,7 +76,14 @@ class LearnCFIL():
                         annotation_path=os.path.join(file_path, "ref"), 
                         output_path=os.path.join(file_path, task_name, "masked_images_f"))
             
-                per_sam.loadSAM_f()
+                if os.path.exists(os.path.join(file_path, "weight.npy")):
+                    wight_np = np.load(os.path.join(file_path, "weight.npy"))
+                    per_sam.loadSAM_f(weight=wight_np)
+                else:
+                    weight_np = per_sam.loadSAM_f()
+                    np.save(os.path.join(file_path, "weight.npy"), weight_np)
+                # per_sam.loadSAM_f()
+                # per_sam.loadSAM_f(image_size=(self.image_size, self.image_size))
             else:
                 per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
@@ -90,7 +97,9 @@ class LearnCFIL():
             basename = image_path.split("\\")[-1]
 
             image = cv2.imread(os.path.join(file_path,"image/" + basename+".jpg"))
-            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+            image = cv2.resize(image, None,fx=0.1,fy=0.1)
             
             if self.use_sam:
                 if self.sam_f:
@@ -105,16 +114,16 @@ class LearnCFIL():
                     image = per_sam.save_randomfig_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
 
 
-            # image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             pose_eb = utils.transform(pose, bottleneck_pose)
             pose_eb = self.rotvec2euler(pose_eb)
             # print(pose, pose_eb)
 
             if self.initialize == False:
-                self.approach_memory.initial_settings(image, pose)
+                self.approach_memory.initial_settings(image, np.array([pose_eb[0], pose_eb[1], pose_eb[5]]))
                 self.initialize = True
 
-            self.approach_memory.append(image, pose_eb)
+            self.approach_memory.append(image, np.array([pose_eb[0], pose_eb[1], pose_eb[5]]))
         return self.approach_memory
         # if self.sam_f:
         #     self.approach_memory.save_joblib(os.path.join(file_path, "approach_memory_f.joblib"))
@@ -124,7 +133,8 @@ class LearnCFIL():
     def load_joblib(self, joblib_path=""):
         self.approach_memory.load_joblib(joblib_path)
 
-    def train(self, file_path=""):
+    def train_abn(self, file_path=""):
+        file_path = os.path.join(file_path, "abn",)
         tensorboard_dir = os.path.join(
                 file_path,
                 "cfil_{}".format(datetime.now().strftime("%Y%m%d-%H%M")),
@@ -135,9 +145,9 @@ class LearnCFIL():
         self.writer = SummaryWriter(log_dir=tensorboard_dir)
 
         if self.image_size == 128:
-            self.approach_model = ABN128()
+            self.approach_model = ABN128(output_size=3)
         elif self.image_size == 256:
-            self.approach_model = ABN256()
+            self.approach_model = ABN256(output_size=3)
         
         self.approach_model.to(self.device)
         # self.reg_approach_criterion = nn.MSELoss()
@@ -182,6 +192,55 @@ class LearnCFIL():
             if (epoch+1) % 2000 == 0 or epoch == 0:
                 time_stamp=datetime.now().strftime("%Y%m%d-%H%M%S")
                 self.save_attention_fig(imgs[:10], att[:10], time_stamp, file_path, name="approach_epoch_"+str(epoch+1))  
+                torch.save(self.approach_model.state_dict(), os.path.join(file_path, f"approach_model_{str(epoch+1)}.pth"))
+        torch.save(self.approach_model.state_dict(), os.path.join(file_path, "approach_model_final.pth"))
+
+    def train_cnn(self, file_path=""):
+        file_path = os.path.join(file_path, "cnn",)
+        tensorboard_dir = os.path.join(
+                file_path,
+                "cfil_{}".format(datetime.now().strftime("%Y%m%d-%H%M")),
+            )
+        if not os.path.exists(tensorboard_dir):
+            os.makedirs(tensorboard_dir)
+            
+        self.writer = SummaryWriter(log_dir=tensorboard_dir)
+
+        self.approach_model = CNN256(output_size=3)
+        
+        self.approach_model.to(self.device)
+        self.reg_approach_criterion = MSE_decay()
+        self.approach_optimizer = optim.Adam(self.approach_model.parameters(), lr=0.0001)
+        # train approach
+        self.approach_model.train()
+
+        RandomInvert = transforms.RandomInvert(p=0.5)
+        ColorJitter = transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5)
+        for epoch in tqdm(range(self.train_epochs)):
+            sample = self.approach_memory.sample(self.batch_size)
+            imgs = sample['images_seq']
+            imgs = RandomInvert(imgs)
+            imgs = ColorJitter(imgs)
+            positions_eb = sample['positions_seq']
+            rx = self.approach_model(imgs)
+
+            labels = positions_eb
+            reg_loss = self.reg_approach_criterion(rx, labels)
+
+            self.approach_optimizer.zero_grad()
+            (reg_loss).backward()
+
+            self.approach_optimizer.step()
+            if (epoch % (self.train_epochs//10) == 0 and epoch > 0) or epoch == (self.train_epochs-1):
+                print("epoch: {}".format(epoch) )
+                print(" pos: ", positions_eb[0])
+                print(" reg out_put: ", rx.detach()[0])
+            
+            if epoch % 100 == 0:
+                self.writer.add_scalar(
+                        'loss/approach_reg', reg_loss.detach().item(), epoch)
+            
+            if (epoch+1) % 2000 == 0 or epoch == 0:
                 torch.save(self.approach_model.state_dict(), os.path.join(file_path, f"approach_model_{str(epoch+1)}.pth"))
         torch.save(self.approach_model.state_dict(), os.path.join(file_path, "approach_model_final.pth"))
 
@@ -242,7 +301,7 @@ def str2bool(v):
 class MSE_decay(torch.nn.Module):
     def __init__(self):
         super(MSE_decay, self).__init__()
-        self.decay = torch.tensor([1,1,0,0,0,100]).to("cuda")
+        self.decay = torch.tensor([1,1,100]).to("cuda")
     def forward(self, pred, true):
         return torch.mean(
             torch.einsum('j,ik->ik', (self.decay, (pred - true) * (pred - true))))
@@ -256,6 +315,7 @@ if __name__ == "__main__":
     parser.add_argument('--random_background', action='store_true')
     parser.add_argument('--make_joblib', action='store_true')
     parser.add_argument('--train', action='store_true')
+    parser.add_argument('--abn', action='store_true')
     args = parser.parse_args()
 
     settings_file_path = "config_cfil.json"
@@ -293,7 +353,7 @@ if __name__ == "__main__":
             cl.load_joblib(joblib_path=joblib_path)
     
         result_path = os.path.join(*["CFIL_for_NIP","train_data", "all_data"])
-        cl.train(file_path=os.path.join(result_path, task_name))
+        cl.train_abn(file_path=os.path.join(result_path, task_name))
 
     else:
         task_name = "normal"
@@ -320,6 +380,10 @@ if __name__ == "__main__":
             joblib = cl.makeJobLib(task_name=task_name, file_path=file_path, mask_image_only=args.mask_image_only, random_background=args.random_background)
             joblib.save_joblib(joblib_path)
         
-        if args.train:
+        if args.train and args.abn:
             cl.load_joblib(joblib_path=joblib_path)
-            cl.train(file_path=os.path.join(file_path, task_name))
+            cl.train_abn(file_path=os.path.join(file_path, task_name))
+        elif args.train:
+            cl.load_joblib(joblib_path=joblib_path)
+            cl.train_cnn(file_path=os.path.join(file_path, task_name))
+            

@@ -199,24 +199,28 @@ class PerSAM:
             
             self.save_masks(masks, best_idx, test_image, topk_xy, topk_label, test_idx)
 
-    def loadSAM_f(self):
+    def loadSAM_f(self, weight=None, image_size=None):
         ref_image_path = os.path.join(self.annotation_path, 'original.jpg') #参照用の元画像
         ref_mask_path = os.path.join(self.annotation_path, 'mask.jpg') #参照用の元マスク画像
         os.makedirs(self.output_path, exist_ok=True)
 
         # Load images and masks
         ref_image = cv2.imread(ref_image_path)
-        ref_image = cv2.resize(ref_image,None,fx=0.1,fy=0.1)
         ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
         ref_mask = cv2.imread(ref_mask_path)
-        ref_mask = cv2.resize(ref_mask,None,fx=0.1,fy=0.1)
         ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
+        if image_size is None:
+            ref_image = cv2.resize(ref_image,None,fx=0.1,fy=0.1)
+            ref_mask = cv2.resize(ref_mask,None,fx=0.1,fy=0.1)
+        else:
+            ref_image = cv2.resize(ref_image, image_size)
+            ref_mask = cv2.resize(ref_mask, image_size)
         gt_mask = torch.tensor(ref_mask)[:, :, 0] > 0 
         gt_mask = gt_mask.float().unsqueeze(0).flatten(1).cuda()
 
         print("======> Load SAM" )
-        sam_type, sam_ckpt = 'vit_h', os.path.join('sam','sam_vit_h.pth') #学習済みモデルを指定
-        # sam_type, sam_ckpt = 'vit_t', os.path.join('sam','mobile_sam.pt') #学習済みモデルを指定
+        # sam_type, sam_ckpt = 'vit_h', os.path.join('sam','sam_vit_h.pth') #学習済みモデルを指定
+        sam_type, sam_ckpt = 'vit_t', os.path.join('sam','mobile_sam.pt') #学習済みモデルを指定
         sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
         sam.eval()
         self.predictor = SamPredictor(sam)
@@ -240,6 +244,11 @@ class PerSAM:
         ref_feat = ref_feat / ref_feat.norm(dim=-1, keepdim=True)
         ref_feat = ref_feat.permute(2, 0, 1).reshape(C, h * w)
         sim = self.target_feat @ ref_feat
+
+        if weight is not None:
+            self.weights_np = weight
+            self.weights = torch.tensor(weight).cuda()
+            return None
 
         sim = sim.reshape(1, 1, h, w)
         sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
@@ -295,7 +304,7 @@ class PerSAM:
         mask_weights.eval()
         self.weights = torch.cat((1 - mask_weights.weights.sum(0).unsqueeze(0), mask_weights.weights), dim=0)
         self.weights_np = self.weights.detach().cpu().numpy()
-        print('======> Mask weights:\n', self.weights_np)
+        return self.weights_np
 
     def point_selection_f(self, mask_sim, topk=1):
         # Top-1 point selection
@@ -435,6 +444,7 @@ class PerSAM:
 
     def loadPositionDetector(self):
         # Load images and masks
+        print(os.path.join(self.annotation_path+"_pd", 'original.jpg'))
         ref_image_path = os.path.join(self.annotation_path+"_pd", 'original.jpg') #参照用の元画像
         ref_mask_path = os.path.join(self.annotation_path+"_pd", 'mask.jpg') #参照用の元マスク画像
         ref_image = cv2.imread(ref_image_path)
@@ -449,10 +459,9 @@ class PerSAM:
         ref_mask = F.interpolate(ref_mask, size=ref_feat.shape[0: 2], mode="bilinear")
         ref_mask = ref_mask.squeeze()[0]
         # # Target feature extraction
-        # self.target_feat = ref_feat[ref_mask > 0]
-        # self.target_embedding = self.target_feat.mean(0).unsqueeze(0)
-        # self.target_feat = self.target_embedding / self.target_embedding.norm(dim=-1, keepdim=True)
-        # self.target_embedding = self.target_embedding.unsqueeze(0)
+        # self.target_feat_pd = ref_feat[ref_mask > 0]
+        # self.target_embedding_pd = self.target_feat_pd.mean(0).unsqueeze(0)
+        # self.target_feat_pd = self.target_embedding_pd / self.target_embedding_pd.norm(dim=-1, keepdim=True)
 
         # Target feature extraction(PerSam)
         self.target_feat_pd = ref_feat[ref_mask > 0]
@@ -495,6 +504,7 @@ class PerSAM:
             # plt.axis("off")
             # plt.savefig("positon_detector_similarity.jpg")
             # plt.close()
+            cv2.imwrite("positon_detector_original.jpg", test_image)   
             cv2.imwrite("positon_detector_similarity.jpg", cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))   
         return peaks_index
 

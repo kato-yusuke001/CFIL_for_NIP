@@ -13,6 +13,6 @@ tensorboard
 pytransform3d
 pyrealsense2
 plotly
-ipywidgets
+ipywidgets #　windowsでは　別途rustのインストールが必要
 
 git+https://github.com/facebookresearch/segment-anything.git

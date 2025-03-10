@@ -37,20 +37,24 @@
 # python train_cfil.py --data_dir 20250129_mirror --persam_f --mask_image_only --train --random_background
 # python train_cfil.py --data_dir 20250129_white --persam_f --mask_image_only --train --random_background
 
-python train_cfil.py --data_dir 20250127_almi --make_joblib --train
-python train_cfil.py --data_dir 20250129_black --make_joblib --train
-python train_cfil.py --data_dir 20250127_blue --make_joblib --train
-python train_cfil.py --data_dir 20250129_mirror --make_joblib --train
-python train_cfil.py --data_dir 20250129_white --make_joblib --train
+# python train_cfil.py --data_dir 20250127_almi --make_joblib --train
+# python train_cfil.py --data_dir 20250129_black --make_joblib --train
+# python train_cfil.py --data_dir 20250127_blue --make_joblib --train
+# python train_cfil.py --data_dir 20250129_mirror --make_joblib --train
+# python train_cfil.py --data_dir 20250129_white --make_joblib --train
 
-python train_cfil.py --data_dir 20250127_almi --make_joblib --train --persam_f
-python train_cfil.py --data_dir 20250129_black --make_joblib --train --persam_f
-python train_cfil.py --data_dir 20250127_blue --make_joblib --train --persam_f
-python train_cfil.py --data_dir 20250129_mirror --make_joblib --train --persam_f
-python train_cfil.py --data_dir 20250129_white --make_joblib --train --persam_f
+# python train_cfil.py --data_dir 20250127_almi --make_joblib --train --persam_f
+# python train_cfil.py --data_dir 20250129_black --make_joblib --train --persam_f
+# python train_cfil.py --data_dir 20250127_blue --make_joblib --train --persam_f
+# python train_cfil.py --data_dir 20250129_mirror --make_joblib --train --persam_f
+# python train_cfil.py --data_dir 20250129_white --make_joblib --train --persam_f
 
-python train_cfil.py --data_dir 20250127_almi --make_joblib --train --persam_f --mask_image_only
-python train_cfil.py --data_dir 20250129_black --make_joblib --train --persam_f --mask_image_only
-python train_cfil.py --data_dir 20250127_blue --make_joblib --train --persam_f --mask_image_only
-python train_cfil.py --data_dir 20250129_mirror --make_joblib --train --persam_f --mask_image_only
-python train_cfil.py --data_dir 20250129_white --make_joblib --train --persam_f --mask_image_only
+# python train_cfil.py --data_dir 20250127_almi --make_joblib --train --persam_f --mask_image_only
+# python train_cfil.py --data_dir 20250129_black --make_joblib --train --persam_f --mask_image_only
+# python train_cfil.py --data_dir 20250127_blue --make_joblib --train --persam_f --mask_image_only
+# python train_cfil.py --data_dir 20250129_mirror --make_joblib --train --persam_f --mask_image_only
+# python train_cfil.py --data_dir 20250129_white --make_joblib --train --persam_f --mask_image_only
+
+python train_cfil.py --data_dir 20250310_demo --make_joblib --train
+python train_cfil.py --data_dir 20250310_demo --make_joblib --train --persam_f
+python train_cfil.py --data_dir 20250310_demo --make_joblib --train --persam_f --mask_image_only

@@ -239,7 +239,12 @@ class Agent:
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(file_path, "ref"), 
                         output_path=os.path.join(image_path, "masked_images"))
-            self.per_sam.loadSAM_f()
+            if os.path.exists(os.path.join(file_path, "weight.npy")):
+                wight_np = np.load(os.path.join(file_path, "weight.npy"))
+                self.per_sam.loadSAM_f(weight=wight_np)
+            else:
+                weight_np = self.per_sam.loadSAM_f()
+                np.save(os.path.join(file_path, "weight.npy"), weight_np)
             self.use_sam = True
             return True
         except Exception as e:
@@ -249,7 +254,8 @@ class Agent:
     def estimate_from_image_f(self, image_path):
         try:
             image = cv2.imread(image_path+".jpg")
-            image = cv2.resize(image, dsize=(self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = cv2.resize(image, None,fx=0.1,fy=0.1)
             if self.use_sam:
                 heatmap = False
                 masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM_f(image, show_heatmap=heatmap)
@@ -257,6 +263,7 @@ class Agent:
                 if heatmap:
                     self.per_sam.save_heatmap(image_path.split("\\")[-1]+"_similarity.jpg")
 
+            image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             image = np.transpose(image, [2, 0, 1])
             image_tensor = torch.ByteTensor(image).to(self.device).float() / 255.
             image_tensor = torch.unsqueeze(image_tensor, 0)
@@ -310,7 +317,10 @@ class Agent:
             self.cam = None
         
             # nishikadoma
-            crop_settings = [{"crop_size_x": 240, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]
+            # crop_settings = [{"crop_size_x": 240, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]
+            # crop_settings = [{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]
+            # crop_settings = [{'crop_size_x': 251, 'crop_size_y': 194, 'crop_center_x': 337, 'crop_center_y': 210}]
+            crop_settings = [{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]
             # D405  tsu
             # crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
 
@@ -318,15 +328,17 @@ class Agent:
 
             self.ratio = np.load("calib/camera_info/ratio.npy")
             # self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
-            diff_center = crop_settings[self.camera_id]["crop_center_x"] - 320 
-            # self.center_pixels = [crop_settings[self.camera_id]["crop_size"]//2, crop_settings[self.camera_id]["crop_size"]//2]
-            self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size_y"])//2]
+            # diff_center = crop_settings[self.camera_id]["crop_center_x"] - 320 
+            # self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size_y"])//2]
+            self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2, crop_settings[self.camera_id]["crop_size_y"]//2]
+            
             print(self.center_pixels)
 
             #nishikadoma
             # self.center_position = [-0.0809, -0.470]
-            self.center_position = [-0.010, -0.535]
+            # self.center_position = [-0.010, -0.535]
             # self.center_position = [-0.03, -0.5]
+            self.center_position = [0.004998829998830001, -0.4519421305709614]
 
 
             #tsu
@@ -346,7 +358,7 @@ class Agent:
         
     def get_positions_force(self):
         color_images, depth_images, _, _ = self.cam.get_image(crop=True)
-        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=30, order=0.7, save_sim=True)
+        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=20, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
         # xy の順番に注意

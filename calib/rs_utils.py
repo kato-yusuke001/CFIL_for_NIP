@@ -205,7 +205,7 @@ class RealSense:
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    # D405 nishikadoma
+    # D405 default
     rs_settings = {
         "width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
         "crop_settings": [{"crop_size_x": 280, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]}
@@ -227,9 +227,13 @@ if __name__ == "__main__":
     #     "crop_settings": [{"crop_size": 224, "crop_center_x": 320, "crop_center_y": 180}]}
 
     # D405 nishikadoma
+    # rs_settings= {"width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
+    #               "crop_settings":[{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]}
+    
+    # D405 nishikadoma 20250310
     rs_settings= {"width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
-                  "crop_settings":[{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]}
-
+                  "crop_settings":[{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]}
+    
     # Start realsense pipeline
     rs = RealSense(**rs_settings)
     rs.show_image(crop=False, get_mask=False, scale=1.0)

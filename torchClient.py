@@ -315,7 +315,8 @@ class Estimate_f(NIPClient):
             if(check_res(res)):
                 output = eval(res.text)
                 # position_eb = [output[0], output[1], output[2], output[3], output[4], output[5]]
-                position_eb = [output[0], output[1], output[2], 0.0, 0.0, output[5]]
+                # position_eb = [output[0], output[1], output[2], 0.0, 0.0, output[5]]
+                position_eb = [output[0], output[1], 0.0, 0.0, 0.0, output[3]]
                 position_eb = euler2rotvec(position_eb)
                 position_re = get_variable(solution, "current_robot_pose")
                 # position_re[0] *= 1000
