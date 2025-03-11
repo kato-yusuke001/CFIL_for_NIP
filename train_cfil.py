@@ -21,6 +21,18 @@ from CFIL_for_NIP.memory import ApproachMemory
 
 from CFIL_for_NIP import utils
 
+from logger import setup_logger
+
+logging = None
+
+def log_info_output(log_message):
+    print(log_message)
+    logging.info(log_message)
+
+def log_error_output(log_message):
+    print(log_message)
+    logging.error(log_message)
+
 class LearnCFIL():
     def __init__(self, 
                  memory_size=5e4, 
@@ -66,7 +78,7 @@ class LearnCFIL():
             # print([row for row in reader][1][:6])
             bottleneck_pose = np.array([row for row in reader][1][:6]).astype(np.float32)
 
-        print(bottleneck_pose)
+        print(f"bottleneck_pose: {bottleneck_pose}")
 
         if self.use_sam:
             from perSam import PerSAM
@@ -179,11 +191,18 @@ class LearnCFIL():
             # loss.backward()
             self.approach_optimizer.step()
             if (epoch % (self.train_epochs//10) == 0 and epoch > 0) or epoch == (self.train_epochs-1):
-                print("epoch: {}".format(epoch) )
-                print(" pos: ", positions_eb[0].detach())
-                print(" reg out_put: ", rx.detach()[0])
-                print(" att out_put: ", ax.detach()[0])
-                print("  sub mean: ", abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0))  
+                # print("epoch: {}".format(epoch) )
+                # print(" pos: ", positions_eb[0].detach())
+                # print(" reg out_put: ", rx.detach()[0])
+                # print(" att out_put: ", ax.detach()[0])
+                # print("  sub mean: ", abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0))  
+                log_text = f"epoch: {epoch}\n"
+                log_text += f" pos: {positions_eb[0].to('cpu').detach().numpy().copy()}"
+                log_text += f" reg out_put: {rx.detach()[0].to('cpu').detach().numpy().copy()}"
+                log_text += f" att out_put: {ax.detach()[0].to('cpu').detach().numpy().copy()}"
+                log_text += f"  sub mean: {abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0).to('cpu').detach().numpy().copy()}"
+                # print(log_text)
+                log_info_output(log_text)
             
             if epoch % 100 == 0:
                 self.writer.add_scalar(
@@ -235,10 +254,16 @@ class LearnCFIL():
 
             self.approach_optimizer.step()
             if (epoch % (self.train_epochs//10) == 0 and epoch > 0) or epoch == (self.train_epochs-1):
-                print("epoch: {}".format(epoch) )
-                print(" pos: ", positions_eb.detach()[0])
-                print(" reg out_put: ", rx.detach()[0])
-                print("  sub mean: ", abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0))  
+                # print("epoch: {}".format(epoch) )
+                # print(" pos: ", positions_eb.detach()[0])
+                # print(" reg out_put: ", rx.detach()[0])
+                # print("  sub mean: ", abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0))  
+                log_text = f"epoch: {epoch}\n"
+                log_text += f" pos: {positions_eb[0].to('cpu').detach().numpy().copy()}"
+                log_text += f" reg out_put: {rx.detach()[0].to('cpu').detach().numpy().copy()}"
+                log_text += f"  sub mean: {abs(torch.subtract(positions_eb.detach(), rx.detach())).mean(dim=0).to('cpu').detach().numpy().copy()}"
+                # print(log_text)
+                log_info_output(log_text)
             
             if epoch % 100 == 0:
                 self.writer.add_scalar(
@@ -372,7 +397,9 @@ if __name__ == "__main__":
         else:
             task_name = "normal"
 
-        print(f"task name: {task_name}")
+        # print(f"task name: {task_name}")
+        logging = setup_logger(f"{args.data_dir}_{task_name}", "train_log")
+        log_info_output(f"task name: {task_name}")
         joblib_path = os.path.join(file_path, f"{task_name}.joblib")
 
         save_dir = os.path.join(file_path, task_name)
@@ -380,7 +407,8 @@ if __name__ == "__main__":
             os.makedirs(save_dir)
 
         if args.make_joblib:
-            print("make joblib")
+            # print("make joblib")
+            log_info_output("make joblib")
             joblib = cl.makeJobLib(task_name=task_name, file_path=file_path, mask_image_only=args.mask_image_only, random_background=args.random_background)
             joblib.save_joblib(joblib_path)
         

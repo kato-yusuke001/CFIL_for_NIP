@@ -35,7 +35,7 @@ PORT = 5000
 app = Flask(__name__)
 
 # ロガー設定
-logging = setup_logger("torchServer", "torchServer")
+logging = setup_logger("torchServer")
 
 def log_meesage(message):
     print(message)

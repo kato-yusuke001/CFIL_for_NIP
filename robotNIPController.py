@@ -39,7 +39,7 @@ from logger import setup_logger
 # log_format = "%(asctime)s %(levelname)s:%(message)s"
 # logging.basicConfig(filename=log_file_path, level=LOGLEVEL, format=log_format)
 
-logging = setup_logger("robotNIPController", "robotNIPController")
+logging = setup_logger("robotNIPController")
 
 # ロボット設定
 print(os.getcwd())

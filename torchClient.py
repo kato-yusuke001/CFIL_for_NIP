@@ -10,7 +10,7 @@ import abc
 from scipy.spatial.transform import Rotation
 
 # ロガー設定
-logging = setup_logger("torchClient", "torchClient")
+logging = setup_logger("torchClient")
 
 def log_meesage(message):
     print(message)

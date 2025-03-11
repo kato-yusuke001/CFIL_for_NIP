@@ -1,14 +1,18 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
+import os
 
-def setup_logger(name, log_file, level=logging.INFO):
+def setup_logger(name, log_file="logs", level=logging.INFO):
     # 日本時間のタイムゾーンを設定
     start_japan = datetime.now()
     formatted_time = start_japan.strftime("%Y-%m-%d_%H-%M-%S")
     
     # ログファイルの設定
-    log_filename = f"./logs/{name}_log_{formatted_time}.log"
+    log_dir = f"./{log_file}" 
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    log_filename = os.path.join(log_dir, f"{name}_log_{formatted_time}.log")
 
     # ロガーを設定
     logger = logging.getLogger(name)
