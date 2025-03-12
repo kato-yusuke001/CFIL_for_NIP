@@ -372,7 +372,8 @@ class Agent:
         
     def get_positions_force(self):
         color_images, depth_images, _, _ = self.cam.get_image(crop=True)
-        peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=20, order=0.7, save_sim=True)
+        # peaks_pixels = self.per_sam.getPeaks(color_images[0], filter_size=20, order=0.65, save_sim=True)
+        peaks_pixels = self.per_sam.getObjects(color_images[0], filter_size=20, order=0.7, save_sim=True)
         positions_X = []
         positions_Y = []
         # xy の順番に注意

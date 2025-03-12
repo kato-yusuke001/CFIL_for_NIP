@@ -507,14 +507,50 @@ class PerSAM:
             cv2.imwrite("positon_detector_original.jpg", test_image)   
             cv2.imwrite("positon_detector_similarity.jpg", cv2.cvtColor(self.heatmap, cv2.COLOR_RGB2BGR))   
         return peaks_index
+    
+    def getObjects(self, image, filter_size=20, order=0.7, save_sim=False):
+        sim = self.getSimirality(image)
+        heatmap = sim_to_heatmap(sim, th=order)
 
-def sim_to_heatmap(sim):
+        image_hsv = cv2.cvtColor(heatmap, cv2.COLOR_BGR2HSV)
+        img_H, img_S, img_V = cv2.split(image_hsv)
+        _thre, image_mask = cv2.threshold(img_H, 0, 30, cv2.THRESH_BINARY)
+        contours, hierarchy = cv2.findContours(image_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE) #img_binaryを輪郭抽出
+        image_contours = cv2.drawContours(image.copy(), contours, -1, (0,255,0), 2) #抽出した輪郭を緑色でimg_colorに重ね書き
+        x_list = []
+        y_list = []
+        for i in range(0, len(contours)):
+            if len(contours[i]) > 0:
+                if cv2.contourArea(contours[i]) < 20:
+                    continue
+                # 重心の計算
+                m = cv2.moments(contours[i])
+                x,y= m['m10']/m['m00'] , m['m01']/m['m00']
+                # print(f"Weight Center = ({x}, {y})")
+                # 座標を四捨五入
+                x, y = round(x), round(y)
+                x_list.append(x)
+                y_list.append(y)
+
+        peaks_index = np.array([y_list, x_list]).T
+        peaks_index = sorted(peaks_index, key=lambda x: x[1])
+        peaks_index = np.array(peaks_index).T
+
+        if save_sim:
+            cv2.imwrite("positon_detector_original.jpg", image)   
+            cv2.imwrite("positon_detector_similarity.jpg", cv2.cvtColor(heatmap, cv2.COLOR_RGB2BGR))   
+            cv2.imwrite("positon_detector_Contours.jpg", image_contours)
+
+        return peaks_index
+
+def sim_to_heatmap(sim, th=0):
     if torch.is_tensor(sim):
         x = sim.to("cpu").detach().numpy().copy()
     else:
         x = sim.copy()
     h, w = x.shape
     x = (x - np.min(x)) / (np.max(x) - np.min(x))
+    x[x < th] = 0
     x = (x * 255).reshape(-1)
     cm = plt.get_cmap("jet")
     x = np.array([cm(int(np.round(xi)))[:3] for xi in x])
