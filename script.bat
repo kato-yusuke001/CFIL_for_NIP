@@ -58,19 +58,19 @@
 # python train_cfil.py --data_dir 20250310_demo --make_joblib --train --abn
 # python train_cfil.py --data_dir 20250310_demo --make_joblib --train --persam_f --abn
 # python train_cfil.py --data_dir 20250310_demo --make_joblib --train --persam_f --mask_image_only --abn
-
-python train_cfil.py --data_dir 20250127_almi --train --persam_f --abn
-python train_cfil.py --data_dir 20250129_black --train --persam_f --abn
-python train_cfil.py --data_dir 20250127_blue --train --persam_f --abn
-python train_cfil.py --data_dir 20250129_mirror --train --persam_f --abn
-python train_cfil.py --data_dir 20250129_white --train --persam_f --abn
-
-python train_cfil.py --data_dir 20250127_almi --train --persam_f --mask_image_only --abn
-python train_cfil.py --data_dir 20250129_black --train --persam_f --mask_image_only --abn
-python train_cfil.py --data_dir 20250127_blue --train --persam_f --mask_image_only --abn
-python train_cfil.py --data_dir 20250129_mirror --train --persam_f --mask_image_only --abn
-python train_cfil.py --data_dir 20250129_white --train --persam_f --mask_image_only --abn
-
-python train_cfil.py --data_dir 20250310_demo --train --abn
-python train_cfil.py --data_dir 20250310_demo --train --persam_f --abn
-python train_cfil.py --data_dir 20250310_demo --train --persam_f --mask_image_only --abn
+# 
+# python train_cfil.py --data_dir 20250127_almi --train --persam_f --abn
+# python train_cfil.py --data_dir 20250129_black --train --persam_f --abn
+# python train_cfil.py --data_dir 20250127_blue --train --persam_f --abn
+# python train_cfil.py --data_dir 20250129_mirror --train --persam_f --abn
+# python train_cfil.py --data_dir 20250129_white --train --persam_f --abn
+# 
+# python train_cfil.py --data_dir 20250127_almi --train --persam_f --mask_image_only --abn
+# python train_cfil.py --data_dir 20250129_black --train --persam_f --mask_image_only --abn
+# python train_cfil.py --data_dir 20250127_blue --train --persam_f --mask_image_only --abn
+# python train_cfil.py --data_dir 20250129_mirror --train --persam_f --mask_image_only --abn
+# python train_cfil.py --data_dir 20250129_white --train --persam_f --mask_image_only --abn
+# 
+# python train_cfil.py --data_dir 20250312_demo --make_joblib --train --abn
+python train_cfil.py --data_dir 20250312_demo --make_joblib --train --persam_f --abn
+python train_cfil.py --data_dir 20250312_demo --make_joblib --train --persam_f --mask_image_only --abn

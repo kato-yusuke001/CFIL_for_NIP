@@ -206,6 +206,8 @@ class LearnCFIL():
             
             if epoch % 100 == 0:
                 self.writer.add_scalar(
+                        'loss/angle', reg_loss.detach().item(), epoch)
+                self.writer.add_scalar(
                         'loss/approach_reg', reg_loss.detach().item(), epoch)
                 self.writer.add_scalar(
                         'loss/approach_att', att_loss.detach().item(), epoch)

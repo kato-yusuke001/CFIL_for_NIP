@@ -325,16 +325,21 @@ class Estimate_f(NIPClient):
             res = request_post(solution, _act="estimate_f", _data="image_path", _value=image_path)
             if(check_res(res)):
                 output = eval(res.text)
-                # position_eb = [output[0], output[1], output[2], output[3], output[4], output[5]]
-                # position_eb = [output[0], output[1], output[2], 0.0, 0.0, output[5]]
-                # position_eb = [output[0], output[1], 0.0, 0.0, 0.0, output[3]]
-                # position_eb = euler2rotvec(position_eb)
-                position_eb = [output[0], output[1], 0.0, 0.0, 0.0, 0.0]
+                
+                # position_eb = [output[0], output[1], 0.0, 0.0, 0.0, 0.0]
+                rotate_angles = [0, 0, output[2]]
+                rotate_angles = [np.deg2rad(angle) for angle in rotate_angles]
+                rot = Rotation.from_euler("xyz", rotate_angles)
+                rotvec = rot.as_rotvec()
+                position_eb = [output[0], output[1], 0.0, rotvec[0], rotvec[1], rotvec[2]]
+                
                 
                 position_re = get_variable(solution, "current_robot_pose")
                 print(position_eb, position_re)
                 position_rb = reverse_transform(position_re, position_eb)
-                position_rb = rotate(position_rb, [0, 0, output[2]])
+                # rotate_angles = [0, 0, -output[2]]
+                # rotate_angles = [np.deg2rad(angle) for angle in rotate_angles]
+                # position_rb = rotate(position_rb, rotate_angles)
                 set_variable(solution, "estimated_pose", position_rb)
                 log_meesage("Estimation Completed {}".format(position_rb))
                 return solution.judge_pass()

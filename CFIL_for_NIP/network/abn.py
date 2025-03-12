@@ -122,7 +122,7 @@ class ABN256(BaseNetwork):
         return rx, ax, att
     
 class CNN256(BaseNetwork):
-    def __init__(self, output_size = 256):
+    def __init__(self, output_size = 6):
         super().__init__()
 
         self.features = nn.Sequential(

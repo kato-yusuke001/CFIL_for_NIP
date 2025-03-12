@@ -534,6 +534,9 @@ def detect_peaks(image, filter_size=3, order=0.5):
     # 小さいピーク値を排除（最大ピーク値のorder倍のピークは排除）
     temp = np.ma.array(detected_peaks, mask=~(detected_peaks >= detected_peaks.max() * order))
     peaks_index = np.where((temp.mask != True))
+    peaks_index =np.array(peaks_index).T
+    peaks_index = sorted(peaks_index, key=lambda x: x[1])
+    peaks_index =np.array(peaks_index).T
     return peaks_index
 
 def camera_demo():

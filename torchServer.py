@@ -151,13 +151,16 @@ class Agent:
             self.image_size = 256
 
             self.device = "cuda" if torch.cuda.is_available() else "cpu" 
+            log_meesage("Device: {}".format(self.device))
             if self.image_size == 128:
-                self.cfil = ABN128()
+                self.cfil = ABN128(output_size=3)
             elif self.image_size == 256:
                 self.cfil = ABN256(output_size=3)
             self.cfil.to(self.device)
+            log_meesage("CFIL Model Initialized")
 
             self.approach_memory = ApproachMemory(self.memory_size, self.device)
+            log_meesage("Approach Memory Initialized")
 
             self.use_sam = False
 
@@ -168,15 +171,21 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
              
-    def loadTrainedModel(self, model_path=None, task_name=None, epoch=None):
+    def loadTrainedModel(self, file_path=None, task_name=None, epoch=None):
         try:
+            model_path = None
             if self.train_data_file is None:
-                self.cfil.load_state_dict(torch.load(os.path.join(model_path, task_name, "approach_model_final.pth"),map_location=self.device))
+                print(file_path, task_name, f"approach_model_{epoch}.pth")
+                model_path = os.path.join(file_path, task_name, "abn", f"approach_model_{epoch}.pth")
             else:
-                # self.cfil.load_state_dict(torch.load(os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, "approach_model_final.pth"]),map_location=self.device))
-                self.cfil.load_state_dict(torch.load(os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, f"approach_model_{epoch}.pth"]),map_location=self.device))
+                model_path = os.path.join(*["CFIL_for_NIP", "train_data", self.train_data_file, "abn", f"approach_model_{epoch}.pth"])
+
+            log_meesage(model_path)
+            self.cfil.load_state_dict(torch.load(model_path, map_location=self.device))
+            
             return True
         except Exception as e:
+            log_error(f"train_data_file: {self.train_data_file}, file_path: {file_path}, task_name: {task_name}, epoch: {epoch}")
             log_error("{} : {}".format(type(e), e))
             return False
         
@@ -323,7 +332,7 @@ class Agent:
             crop_settings = [{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]
             # D405  tsu
             # crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
-
+            log_meesage(crop_settings)
             self.cam = RealSense(crop_settings=crop_settings)
 
             self.ratio = np.load("calib/camera_info/ratio.npy")
@@ -332,7 +341,7 @@ class Agent:
             # self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size_y"])//2]
             self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2, crop_settings[self.camera_id]["crop_size_y"]//2]
             
-            print(self.center_pixels)
+            log_meesage(f"center pixels {self.center_pixels}")
 
             #nishikadoma
             # self.center_position = [-0.0809, -0.470]
@@ -447,5 +456,6 @@ if __name__ == "__main__":
     if args.debug:
         cfil_agent.test_PD()
     else:
-        cfil_agent.initialize_all()
+        # cfil_agent.initialize_all()
+        cfil_agent.initialize()
         app.run(debug=False, port=PORT, host=HOST)

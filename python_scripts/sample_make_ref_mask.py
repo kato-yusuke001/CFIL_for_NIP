@@ -38,17 +38,18 @@ def show_box(box, ax):
 
 
 
-ref_folder_path = "C:/Users/4039423/Desktop/N.I.P._ver.7.4.0.0/binary/python/CFIL_for_NIP/train_data/20250310_demo/image/"
+ref_folder_path = "C:/Users/4039423/Desktop/N.I.P._ver.7.4.0.0/binary/python/CFIL_for_NIP/train_data/20250312_demo/"
 
 output_path = '2025_demo/ref'
-file_name = "image_0024"
+file_name = "initial_image"
 ext = "jpg"
 
-ref_save_folder_path = ref_folder_path
+ref_save_folder_path = os.path.join(ref_folder_path,"ref")
 os.makedirs(ref_save_folder_path, exist_ok=True)
-save = False
+save = True
 
 image = cv2.imread(os.path.join(ref_folder_path, f"{file_name}.{ext}"))
+# image = cv2.imread(os.path.join(ref_folder_path, f"{file_name}.{ext}"))
 if save: cv2.imwrite(os.path.join(ref_save_folder_path, f"original.{ext}"), image)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 image_tmp = cv2.resize(image, None, fx=0.1, fy=0.1)
@@ -107,8 +108,8 @@ best_idx = np.argmax(scores)
 final_mask = masks[best_idx]
 masked_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
 masked_image[final_mask, :] = image[final_mask, :]
-if save: cv2.imwrite(os.path.join(ref_folder_path, f"masked_image.{ext}"), cv2.cvtColor(masked_image, cv2.COLOR_RGB2BGR))
+if save: cv2.imwrite(os.path.join(ref_save_folder_path, f"masked_image.{ext}"), cv2.cvtColor(masked_image, cv2.COLOR_RGB2BGR))
 
 mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
 mask_colors[final_mask, :] = np.array([[0, 0, 128]])
-if save: cv2.imwrite(os.path.join(ref_folder_path, f"mask.{ext}"), mask_colors)
+if save: cv2.imwrite(os.path.join(ref_save_folder_path, f"mask.{ext}"), mask_colors)
