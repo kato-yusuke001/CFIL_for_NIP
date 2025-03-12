@@ -78,7 +78,7 @@ class LearnCFIL():
             # print([row for row in reader][1][:6])
             bottleneck_pose = np.array([row for row in reader][1][:6]).astype(np.float32)
 
-        print(f"bottleneck_pose: {bottleneck_pose}")
+        log_info_output(f"bottleneck_pose: {bottleneck_pose}")
 
         if self.use_sam:
             from perSam import PerSAM
