@@ -166,6 +166,8 @@ class Agent:
 
             self.train_data_file = None
 
+            self.task_name = None
+
             return True
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
@@ -240,7 +242,7 @@ class Agent:
         try:
             from perSam import PerSAM
             print(f"image_path: {image_path}, file_path: {file_path}, task_name: {task_name}")
-           
+            self.task_name = task_name
             self.output_path = os.path.join(file_path, task_name, "test", format(datetime.today(), '%Y%m%d'), "output_images")
             if not os.path.exists(self.output_path):
                 os.makedirs(self.output_path)
@@ -271,6 +273,9 @@ class Agent:
                 image = self.per_sam.save_masked_image(masks[best_idx], image, image_path.split("\\")[-1]+".jpg")
                 if heatmap:
                     self.per_sam.save_heatmap(image_path.split("\\")[-1]+"_similarity.jpg")
+                if "mask_image_only" in self.task_name:
+                    image = np.zeros((masks[best_idx].shape[0], masks[best_idx].shape[1], 3), dtype=np.uint8)
+                    image[masks[best_idx], :] = np.array([[0, 0, 128]])
 
             image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_CUBIC)
             image = np.transpose(image, [2, 0, 1])
