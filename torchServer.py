@@ -444,29 +444,43 @@ class Agent:
 
     def initialize_all(self):
         self.initialize()
-        # self.loadJson()
-        # self.loadSAM_f_Model()
-        self.loadTrainedModel()
-        # self.initialize_positionDetector()
+        self.loadJson()
+        
+        self.loadTrainedModel(file_path=self.root_path, task_name=self.task_name, epoch=self.epoch)
+
+        self.loadSAM_f_Model(image_path=self.image_path, file_path=self.root_path, task_name=self.task_name)
+        
+        self.initialize_positionDetector()
         return True
 
-    def loadJson(self, path="config_cfil.json"):
+    def loadJson(self, path="config_server.json"):
         with open(path, "r") as f:
             json_dict = json.load(f)
 
-        self.train_data_file = json_dict["train_data_file"]
-        return json_dict
-        
+        self.root_path = json_dict["root_path"]
 
+        self.file_path = json_dict["sam_f"]["file_path"]
+        self.task_name = json_dict["sam_f"]["task_name"]
+        self.epoch = json_dict["sam_f"]["epoch"]
+
+        self.image_path = json_dict["sam_f"]["image_path"]
+
+        self.crop_settings_path = json_dict["position_detector"]["crop_settings_path"]
+        self.ratio_path = json_dict["position_detector"]["ratio_path"]
+        self.center_position = json_dict["position_detector"]["center_position"]
+        
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", "-d", action='store_true')
+    parser.add_argument("--production", "-p", action='store_true')
     args = parser.parse_args()
 
     cfil_agent = Agent()
-    if args.debug:
+    if args.debug: # デバッグモード
         cfil_agent.test_PD()
+    elif args.production: # 本番モード
+        cfil_agent.initialize_all()
+        app.run(debug=False, port=PORT, host=HOST)
     else:
-        # cfil_agent.initialize_all()
         cfil_agent.initialize()
         app.run(debug=False, port=PORT, host=HOST)
