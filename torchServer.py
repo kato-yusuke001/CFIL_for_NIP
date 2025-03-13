@@ -335,7 +335,11 @@ class Agent:
             # crop_settings = [{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]
             # crop_settings = [{'crop_size_x': 251, 'crop_size_y': 194, 'crop_center_x': 337, 'crop_center_y': 210}]
 
-            with open("calib/camera_info/crop_settings.json", "r") as f:
+            # with open("calib\\camera_info\\crop_settings.json", "r") as f:
+            #     crop_json = json.load(f)
+            #     crop_settings = crop_json["crop_settings"]
+            
+            with open(self.crop_settings_path, "r") as f:
                 crop_json = json.load(f)
                 crop_settings = crop_json["crop_settings"]
 
@@ -345,7 +349,8 @@ class Agent:
             log_meesage(crop_settings)
             self.cam = RealSense(crop_settings=crop_settings)
 
-            self.ratio = np.load("calib/camera_info/ratio.npy")
+            # self.ratio = np.load("calib\\camera_info\\ratio.npy")
+            self.ratio = np.load(self.ratio_path)
             # self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
             # diff_center = crop_settings[self.camera_id]["crop_center_x"] - 320 
             # self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size_y"])//2]
@@ -357,7 +362,8 @@ class Agent:
             # self.center_position = [-0.0809, -0.470]
             # self.center_position = [-0.010, -0.535]
             # self.center_position = [-0.03, -0.5]
-            self.center_position = [0.004998829998830001, -0.4519421305709614]
+            # self.center_position = [0.004998829998830001, -0.4519421305709614]
+            self.center_position = self.center_position
 
 
             #tsu
@@ -444,22 +450,23 @@ class Agent:
 
     def initialize_all(self):
         self.initialize()
+        log_meesage("initialized")
         self.loadJson()
-        
-        self.loadTrainedModel(file_path=self.root_path, task_name=self.task_name, epoch=self.epoch)
-
-        self.loadSAM_f_Model(image_path=self.image_path, file_path=self.root_path, task_name=self.task_name)
-        
+        log_meesage("json loaded")
+        self.loadTrainedModel(file_path=self.file_path, task_name=self.task_name, epoch=self.epoch)
+        log_meesage("trained model loaded")
+        self.loadSAM_f_Model(image_path=self.image_path, file_path=self.file_path, task_name=self.task_name)
+        log_meesage("sam_f model loaded")
         self.initialize_positionDetector()
+        log_meesage("position detector initialized")
         return True
 
     def loadJson(self, path="config_server.json"):
         with open(path, "r") as f:
             json_dict = json.load(f)
 
-        self.root_path = json_dict["root_path"]
+        self.file_path = json_dict["file_path"]
 
-        self.file_path = json_dict["sam_f"]["file_path"]
         self.task_name = json_dict["sam_f"]["task_name"]
         self.epoch = json_dict["sam_f"]["epoch"]
 

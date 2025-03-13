@@ -1,16 +1,15 @@
 {
-    "root_path": "./CFIL_for_NIP/train_data",
+    "file_path": "CFIL_for_NIP\\train_data\\20250312_demo",
     "sam_f":
     {
-        "file_path": "20250312_demo",
-        "task_name": "sam_f_mask_image_only",
+        "task_name": "persam_f_mask_image_only",
         "epoch": "final",
         "image_path": "cfil_image.jpg"
     },
     "position_detector":
     {
-        "crop_settings_path": "calib/camera_info/crop_settings.json",
-        "ratio_path": "calib/camera_info/ratio.npy",
+        "crop_settings_path": "calib\\camera_info\\crop_settings.json",
+        "ratio_path": "calib\\camera_info\\ratio.npy",
         "center_position": [0.004998829998830001, -0.4519421305709614]
     }
 }

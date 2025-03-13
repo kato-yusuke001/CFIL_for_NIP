@@ -521,7 +521,7 @@ class PerSAM:
         y_list = []
         for i in range(0, len(contours)):
             if len(contours[i]) > 0:
-                if cv2.contourArea(contours[i]) < 20:
+                if cv2.contourArea(contours[i]) < 20 :
                     continue
                 # 重心の計算
                 m = cv2.moments(contours[i])
