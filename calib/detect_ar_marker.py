@@ -2,6 +2,7 @@ import cv2
 from cv2 import aruco
 import numpy as np
 from rs_utils import RealSense
+import json
 
 X1, Y1, = 0, 0
 CLICKED = 0
@@ -31,9 +32,15 @@ detector = aruco.ArucoDetector(dictionary, parameters)
 # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-rs_settings= {"width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
-                  "crop_settings":[{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]}
-cap = RealSense(**rs_settings)
+# rs_settings= {"width": 640, "height": 480, "fps": 90, "clipping_distance": 1.0,
+#                   "crop_settings":[{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]}
+# cap = RealSense(**rs_settings)
+
+with open("camera_info/crop_settings.json", "r") as f:
+    crop_json = json.load(f)
+    crop_settings = crop_json["crop_settings"]
+
+cap = RealSense(crop_settings=crop_settings)
 
 qr4_x = 0.175
 qr4_y = -0.450

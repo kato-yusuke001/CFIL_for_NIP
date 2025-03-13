@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import cv2
+import json
 
 import sys
 sys.path.append("../")
@@ -57,3 +58,6 @@ cv2.destroyAllWindows()
 print("X1:{}, Y1:{}, X2:{}, Y2:{}".format(X1, Y1, X2, Y2))
 crop_settings = [{"crop_size_x": X2-X1, "crop_size_y": Y2-Y1, "crop_center_x": (X1+X2)//2, "crop_center_y": (Y1+Y2)//2}]    
 print(crop_settings)
+d = {"crop_settings": crop_settings}
+with open("camera_info/crop_settings_.json", "w") as f:
+    json.dump(d, f, indent=4)

@@ -334,7 +334,12 @@ class Agent:
             # crop_settings = [{"crop_size_x": 240, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]
             # crop_settings = [{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]
             # crop_settings = [{'crop_size_x': 251, 'crop_size_y': 194, 'crop_center_x': 337, 'crop_center_y': 210}]
-            crop_settings = [{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]
+
+            with open("calib/camera_info/crop_settings.json", "r") as f:
+                crop_json = json.load(f)
+                crop_settings = crop_json["crop_settings"]
+
+            # crop_settings = [{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]
             # D405  tsu
             # crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
             log_meesage(crop_settings)
