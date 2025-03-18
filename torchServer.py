@@ -127,6 +127,13 @@ def initialise_pd():
         log_error("Position Detector Initialization Failed")
         return "False"
 
+@app.route("/get_tray_position_force", methods=["POST"])
+def get_tray_position_force():
+    global cfil_agent
+    ret = str(cfil_agent.get_tray_position_force())
+    log_meesage("Tray Positions Detected {}".format(ret))
+    return ret
+
 @app.route("/get_positions_force", methods=["POST"])
 def get_positions_force():
     global cfil_agent
@@ -380,6 +387,29 @@ class Agent:
         except Exception as e:
             log_error("{} : {}".format(type(e), e))
             return False
+
+    def get_tray_position_force(self):
+        positions = self.get_positions_force()
+        positions_X = positions[0]
+        positions_Y = positions[1]
+        N = positions[2]
+        tray = np.load('../python_scripts/coordinate.npz')
+        coordinate1 = tray['tray1']
+        coordinate2 = tray['tray2']
+        tray_position = []
+        tray_num = []
+        for x,y in zip(positions_X, positions_Y):
+            target_coor =  np.array([x,y])
+            idx1, _ , minL1 = func_search_neighbourhood(target_coor, coordinate1)
+            idx2, _ , minL2 = func_search_neighbourhood(target_coor, coordinate2)
+            if(minL1 < minL2):
+                tray_position.append(idx1)
+                tray_num.append(1)
+            else:
+                tray_position.append(idx2)
+                tray_num.append(2)
+        
+        return [tray_position, tray_num, len(tray_position)]
         
     def get_positions_force(self):
         color_images, depth_images, _, _ = self.cam.get_image(crop=True)
@@ -475,7 +505,16 @@ class Agent:
         self.crop_settings_path = json_dict["position_detector"]["crop_settings_path"]
         self.ratio_path = json_dict["position_detector"]["ratio_path"]
         self.center_position = json_dict["position_detector"]["center_position"]
-        
+
+# 点p0に一番近い点を取得
+def func_search_neighbourhood(p0, ps):
+    L = np.array([])
+    for i in range(ps.shape[0]):
+        norm = np.sqrt( (ps[i][0] - p0[0])*(ps[i][0] - p0[0]) +
+                        (ps[i][1] - p0[1])*(ps[i][1] - p0[1]) )
+        L = np.append(L, norm)
+    return np.argmin(L) ,ps[np.argmin(L)], np.min(L)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", "-d", action='store_true')

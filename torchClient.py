@@ -404,3 +404,23 @@ class DetectPositions_force(NIPClient):
         except Exception as e:
             log_error("Error in DetectPositions: {}".format(e))
             return solution.judge_fail()
+        
+# ワークのトレイ位置検出リクエスト(ピクセル比)
+class DetectTrayPositions_force(NIPClient):
+    def execute(self, solution):
+        try:
+            res = request_posts(solution, _act="get_tray_position_force")
+            output = eval(res.text)
+            set_variable(solution, "work_positions_x", output[0])
+            set_variable(solution, "work_positions_y", output[1])
+            set_variable(solution, "work_num", output[2])
+            if(check_res(res)):
+                log_meesage("DetectTrayPositions Completed {}".format(output))
+                return solution.judge_pass()
+            else:
+                log_error("DetectTrayPositions Failed {}".format(output))
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in DetectTrayPositions: {}".format(e))
+            return solution.judge_fail()
