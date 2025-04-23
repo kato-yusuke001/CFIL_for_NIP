@@ -52,7 +52,9 @@ image = cv2.imread(os.path.join(ref_folder_path, f"{file_name}.{ext}"))
 # image = cv2.imread(os.path.join(ref_folder_path, f"{file_name}.{ext}"))
 if save: cv2.imwrite(os.path.join(ref_save_folder_path, f"original.{ext}"), image)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-image_tmp = cv2.resize(image, None, fx=0.1, fy=0.1)
+# image_tmp = cv2.resize(image, None, fx=0.1, fy=0.1)
+rate = image.shape[0] / 640
+image_tmp = cv2.resize(image, None, fx=1/(rate+1e-10), fy=1/(rate+1e-10))
 
 p = []
 
@@ -86,7 +88,7 @@ sam.to(device=device)
 predictor = SamPredictor(sam)
 predictor.set_image(image)
 
-input_point = np.array([p[-1]])*10
+input_point = np.array([p[-1]])*rate
 input_label = np.array([1])
 
 masks, scores, logits = predictor.predict(
