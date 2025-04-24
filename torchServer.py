@@ -245,10 +245,10 @@ class Agent:
 
         return output[0].tolist()
     
-    def loadSAM_f_Model(self,image_path, file_path, task_name):
+    def loadSAM_f_Model(self, result_path, file_path, task_name):
         try:
             from perSam import PerSAM
-            print(f"image_path: {image_path}, file_path: {file_path}, task_name: {task_name}")
+            print(f"result_path: {result_path}, file_path: {file_path}, task_name: {task_name}")
             self.task_name = task_name
             self.output_path = os.path.join(file_path, task_name, "test", format(datetime.today(), '%Y%m%d'), "output_images")
             if not os.path.exists(self.output_path):
@@ -256,7 +256,7 @@ class Agent:
             self.per_sam = PerSAM(
                         # annotation_path="sam\\ref", 
                         annotation_path=os.path.join(file_path, "ref"), 
-                        output_path=os.path.join(image_path, "masked_images"))
+                        output_path=os.path.join(result_path, "masked_images"))
             if os.path.exists(os.path.join(file_path, "weight.npy")):
                 wight_np = np.load(os.path.join(file_path, "weight.npy"))
                 self.per_sam.loadSAM_f(weight=wight_np)
@@ -495,7 +495,7 @@ class Agent:
         log_meesage("json loaded")
         self.loadTrainedModel(file_path=self.file_path, task_name=self.task_name, epoch=self.epoch)
         log_meesage("trained model loaded")
-        self.loadSAM_f_Model(image_path=self.image_path, file_path=self.file_path, task_name=self.task_name)
+        self.loadSAM_f_Model(result_path=self.image_path, file_path=self.file_path, task_name=self.task_name)
         log_meesage("sam_f model loaded")
         self.initialize_positionDetector()
         log_meesage("position detector initialized")
