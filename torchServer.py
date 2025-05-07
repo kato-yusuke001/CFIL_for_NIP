@@ -523,12 +523,15 @@ if __name__ == "__main__":
     parser.add_argument("--production", "-p", action='store_true')
     args = parser.parse_args()
 
-    cfil_agent = Agent()
-    if args.debug: # デバッグモード
-        cfil_agent.test_PD()
-    elif args.production: # 本番モード
-        cfil_agent.initialize_all()
-        app.run(debug=False, port=PORT, host=HOST)
-    else:
-        cfil_agent.initialize()
-        app.run(debug=False, port=PORT, host=HOST)
+    try:
+        cfil_agent = Agent()
+        if args.debug: # デバッグモード
+            cfil_agent.test_PD()
+        elif args.production: # 本番モード
+            cfil_agent.initialize_all()
+            app.run(debug=False, port=PORT, host=HOST)
+        else:
+            cfil_agent.initialize()
+            app.run(debug=False, port=PORT, host=HOST)
+    except Exception as e:
+        log_error("{} : {}".format(type(e), e))
