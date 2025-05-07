@@ -134,6 +134,7 @@ class NIPClient(metaclass=abc.ABCMeta):
 # CFIL初期化リクエスト
 class Initialize(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             res = request_post(solution, _act="initialize")
             if(check_res(res)):
@@ -148,6 +149,7 @@ class Initialize(NIPClient):
 # CFIL学習済みモデルロードリクエスト
 class LoadTrainedModel(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             file_path = get_variable(solution, "file_path")[0]
             task_name = get_variable(solution, "task_name")[0]    
@@ -168,6 +170,7 @@ class LoadTrainedModel(NIPClient):
 # SAMモデルロードリクエスト
 class LoadSAMModel(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             image_save_path = get_variable(solution, "image_path")[0]
             model_path = get_variable(solution, "model_path")[0]
@@ -187,6 +190,7 @@ class LoadSAMModel(NIPClient):
 # CFIL推論実行リクエスト
 class Estimate(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         def reverse_transform(re, eb):
             re = np.array(re)
             eb = np.array(eb)
@@ -254,6 +258,7 @@ class Estimate(NIPClient):
 # SAMモデルロードリクエスト
 class LoadSAM_f_Model(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             image_save_path = get_variable(solution, "result_path")[0]
             file_path = get_variable(solution, "file_path")[0]
@@ -274,6 +279,7 @@ class LoadSAM_f_Model(NIPClient):
 # CFIL推論実行リクエスト
 class Estimate_f(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         def reverse_transform(re, eb):
             re = np.array(re)
             eb = np.array(eb)
@@ -351,9 +357,35 @@ class Estimate_f(NIPClient):
             log_error("Error in Estimate: {}".format(e))
             return solution.judge_fail()
 
+# CFIL推論実行リクエスト
+class Estimate_f_tray(NIPClient):
+    def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
+        try:
+            image_path = get_variable(solution, "image_path")[0]
+            log_meesage("image_path: {}".format(image_path))
+            res = request_post(solution, _act="estimate_f", _data="image_path", _value=image_path)
+            if(check_res(res)):
+                output = eval(res.text)
+                error = [0, 0, 0]
+                error[0] = output[1]
+                error[1] = output[0]
+                error[2] = -output[2]/10.0
+                set_variable(solution, "error", error)
+                log_meesage("Estimation Completed {}".format(error))
+                return solution.judge_pass()
+            else:
+                log_error("Estimation Failed")
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in Estimate: {}".format(e))
+            return solution.judge_fail()
+
 #ワーク位置検出器初期化リクエスト
 class Initialize_PD(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             res = request_post(solution, _act="initialize_PD")
             if(check_res(res)):
@@ -368,6 +400,7 @@ class Initialize_PD(NIPClient):
 # ワーク位置検出リクエスト
 class DetectPositions(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             res = request_posts(solution, _act="get_positions")
             output = eval(res.text)
@@ -388,6 +421,7 @@ class DetectPositions(NIPClient):
 # ワーク位置検出リクエスト(ピクセル比)
 class DetectPositions_force(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             res = request_posts(solution, _act="get_positions_force")
             output = eval(res.text)
@@ -408,6 +442,7 @@ class DetectPositions_force(NIPClient):
 # ワークのトレイ位置検出リクエスト(ピクセル比)
 class DetectTrayPositions_force(NIPClient):
     def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             res = request_posts(solution, _act="get_tray_position_force")
             output = eval(res.text)

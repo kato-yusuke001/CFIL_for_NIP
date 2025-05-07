@@ -75,6 +75,7 @@ class RobotClient(metaclass=abc.ABCMeta):
     # 初期化処理
     def initialize(self, directory):
         os.chdir(path = directory)
+        
 
     # 終了処理
     def terminate(self):
@@ -88,14 +89,14 @@ class RobotClient(metaclass=abc.ABCMeta):
 # ロボットとPCの接続を確立
 class RobotConnect(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_c, rtde_r, gripper, dashboard, io
         try:
             dashboard = DashboardClient(ROBOT_IP)
             dashboard.connect()
             log_info_output("dashboard connected")
             log_info_output(" Remote Control: {}".format(dashboard.isInRemoteControl()))
-            print("")
-           
+
             if(rtde_r is None): rtde_r = RTDEReceiveInterface(ROBOT_IP)
             log_info_output("rtde_r connected")
             log_info_output(" Safety Mode: {}".format(rtde_r.getSafetyMode()))
@@ -177,6 +178,7 @@ class RobotDisconnect(RobotClient):
 class WakeupRobot(RobotClient):
     # 実行
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_c, rtde_r, dashboard, io, gripper
         try:
             # robotの状態確認
@@ -234,6 +236,7 @@ class WakeupRobot(RobotClient):
 class GetServoStatus(RobotClient):
     # 実行
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_c, rtde_r, dashboard
         try:
             log_info_output(" Safety Mode: {}".format(rtde_r.getSafetyMode()))
@@ -260,6 +263,7 @@ class GetServoStatus(RobotClient):
 # 自己位置のリクエスト
 class GetCurrentPose(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_r
         try:                       
             current_pose = rtde_r.getActualTCPPose()
@@ -277,6 +281,7 @@ class GetCurrentPose(RobotClient):
 # 自己位置のリクエスト (mm)
 class GetCurrentPose_mm(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_r
         try:                       
             current_pose = rtde_r.getActualTCPPose()
@@ -296,6 +301,7 @@ class GetCurrentPose_mm(RobotClient):
 class SetTCP(RobotClient):
     # 実行
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_c
         try:
             # 設定したいtcpを取得
@@ -316,6 +322,7 @@ class SetTCP(RobotClient):
 class SetTCP_mm(RobotClient):
     # 実行
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_c
         try:
             # 設定したいtcpを取得
@@ -350,6 +357,7 @@ class SetTCP_mm(RobotClient):
 class MoveL(RobotClient):
     # 実行
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_c
         try:
             # NIP配列変数から移動先の姿勢を取得
@@ -403,6 +411,7 @@ class MoveL(RobotClient):
 class MoveL_mm(RobotClient):
     # 実行
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_c
         try:
             # NIP配列変数から移動先の姿勢を取得
@@ -457,6 +466,7 @@ class MoveL_mm(RobotClient):
 
 class Vac_On(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global gripper
         if USE_GRIPPER:
             try:
@@ -475,6 +485,7 @@ class Vac_On(RobotClient):
 
 class Vac_Off(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global gripper
         if USE_GRIPPER:
             try:
@@ -491,6 +502,7 @@ class Vac_Off(RobotClient):
 
 class GetPressure(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global gripper
         if USE_GRIPPER:
             pressure = gripper
@@ -513,6 +525,7 @@ class CheckPressure(RobotClient):
 
 class Rotate(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         global rtde_r
         try:
             base_pose = get_variable(solution, "robot_initial_pose")
@@ -527,6 +540,7 @@ class Rotate(RobotClient):
 
 class LoadJson(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             json_file = get_variable(solution, "json_file")
             json_file = json_file[0]
@@ -590,6 +604,7 @@ def rotate(pose, angles, order="xyz"):
 
 class Convert_c_T_r(RobotClient):
     def execute(self, solution):
+        log_info_output(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
 
             mtx = np.load(os.path.dirname(__file__) + "/camera_info/mtx.npy")
