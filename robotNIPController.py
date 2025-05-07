@@ -93,12 +93,15 @@ class RobotConnect(RobotClient):
             dashboard = DashboardClient(ROBOT_IP)
             dashboard.connect()
             log_info_output("dashboard connected")
+            log_info_output(" Remote Control: {}".format(dashboard.isInRemoteControl()))
+            print("")
            
             if(rtde_r is None): rtde_r = RTDEReceiveInterface(ROBOT_IP)
             log_info_output("rtde_r connected")
-            log_info_output("Safety Mode: {}".format(rtde_r.getSafetyMode()))
-            log_info_output("Robot Status: {}".format(rtde_r.getRobotStatus()))
-            log_info_output("Robot Mode: {}".format(rtde_r.getRobotMode()))
+            log_info_output(" Safety Mode: {}".format(rtde_r.getSafetyMode()))
+            log_info_output(" Robot Status: {}".format(rtde_r.getRobotStatus()))
+            log_info_output(" Robot Mode: {}".format(rtde_r.getRobotMode()))
+            
             if(dashboard.isConnected()):
                 dashboard.closeSafetyPopup()
                 if(rtde_r.getSafetyMode() == 2 or rtde_r.getSafetyMode() == 8 or rtde_r.getSafetyMode() == 9):
@@ -141,12 +144,12 @@ class RobotConnect(RobotClient):
             else:
                 pass
             log_info_output("gripper connected")
-            log_info_output("Robot Connection is established !")
+            log_info_output(" Robot Connection is established !")
             set_variable(solution, "Server_Connect", 1)
             return solution.judge_pass()
         except Exception as e:
             # 全ての種類のエラーを取得
-            log_error_output("Robot Connection is failed !")
+            log_error_output(" Robot Connection is failed !")
             log_error_output("{} : {}".format(type(e), e))
             dashboard.disconnect()
             return solution.judge_fail()
@@ -177,9 +180,9 @@ class WakeupRobot(RobotClient):
         global rtde_c, rtde_r, dashboard, io, gripper
         try:
             # robotの状態確認
-            log_info_output("Safety Mode: {}".format(rtde_r.getSafetyMode()))
-            log_info_output("Robot Status: {}".format(rtde_r.getRobotStatus()))
-            log_info_output("Robot Mode: {}".format(rtde_r.getRobotMode()))
+            log_info_output(" Safety Mode: {}".format(rtde_r.getSafetyMode()))
+            log_info_output(" Robot Status: {}".format(rtde_r.getRobotStatus()))
+            log_info_output(" obot Mode: {}".format(rtde_r.getRobotMode()))
             # if(rtde_r.getRobotStatus()==3):
             if(rtde_r.getRobotMode()==7): # Robot mode is running
                 
@@ -233,9 +236,9 @@ class GetServoStatus(RobotClient):
     def execute(self, solution):
         global rtde_c, rtde_r, dashboard
         try:
-            log_info_output("Safety Mode: {}".format(rtde_r.getSafetyMode()))
-            log_info_output("Robot Status: {}".format(rtde_r.getRobotStatus()))
-            log_info_output("Robot Mode: {}".format(rtde_r.getRobotMode()))
+            log_info_output(" Safety Mode: {}".format(rtde_r.getSafetyMode()))
+            log_info_output(" Robot Status: {}".format(rtde_r.getRobotStatus()))
+            log_info_output(" Robot Mode: {}".format(rtde_r.getRobotMode()))
             if(rtde_r.getRobotMode()==7): # Robot mode is running
                 if(rtde_c is None): 
                     rtde_c = RTDEControlInterface(ROBOT_IP)
