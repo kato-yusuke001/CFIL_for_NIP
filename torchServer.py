@@ -19,8 +19,9 @@ import pytransform3d.rotations as pyrot
 import pytransform3d.transformations as pytr
 from pytransform3d.transform_manager import TransformManager
 
-
 from calib.rs_utils import RealSense
+
+import pca
 
 from logger import setup_logger
 
@@ -148,6 +149,14 @@ def get_positions():
     log_meesage("Positions Detected {}".format(ret))
     return ret
 
+@app.route("/image_rot_shift", methods=["POST"])
+def image_rot_shift():
+    global cfil_agent
+    image_path = request.form["image_path"]
+    ret = cfil_agent.image_rot_shift(image_path)
+    log_meesage(f"Image Rot Shifted: x={ret[0]}, y={ret[1]}, rot_angle={ret[2]}")
+    return str(ret)
+
 class Agent:
     def __init__(self):
         pass
@@ -198,7 +207,7 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    def loadSAMModel(self,image_path="CFIL_for_NIP\\train_data\\20241025_151158_245\\test_pd", model_path="CFIL_for_NIP\\train_data\\20241025_151158_245"):
+    def loadSAMModel(self,image_path="", model_path=""):
         try:
             from perSam import PerSAM
             print(image_path, model_path)
@@ -515,6 +524,31 @@ class Agent:
         self.crop_settings_path = json_dict["position_detector"]["crop_settings_path"]
         self.ratio_path = json_dict["position_detector"]["ratio_path"]
         self.center_position = json_dict["position_detector"]["center_position"]
+
+###############################################################
+# Segmentation
+###############################################################  
+    def image_rot_shift(self, image_path):
+        image = cv2.imread(image_path+".jpg")
+        masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
+        final_mask = masks[best_idx]
+        mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
+        mask_image[final_mask, :] = np.array([[0, 0, 128]])
+        result_image, pt, angle, (x, y), box, points = pca.pca(mask_image)
+
+        rot_angle = box[2]
+        if rot_angle > 45:
+            rot_angle = rot_angle - 90
+
+        center = np.mean(points, axis=0)
+
+        # 2. 各点を (x, y) として、左上・右上・右下・左下に分類
+        for p in points:
+            x, y = p
+            if x < center[0] and y < center[1]:
+                break
+        
+        return [x, y, rot_angle]
 
 
 if __name__ == "__main__":

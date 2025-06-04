@@ -459,3 +459,30 @@ class DetectTrayPositions_force(NIPClient):
         except Exception as e:
             log_error("Error in DetectTrayPositions: {}".format(e))
             return solution.judge_fail()
+        
+
+# 位置補正リクエスト
+class ImageRotShift(NIPClient):
+    def execute(self, solution):
+        log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
+        try:
+            image_path = get_variable(solution, "image_path")[0]
+            log_meesage("image_path: {}".format(image_path))
+            res = request_post(solution, _act="image_rot_shift", _data="image_path", _value=image_path)
+            if(check_res(res)):
+                output = eval(res.text)
+                x = output[0]
+                y = output[1]
+                rot_angle = output[2]
+                set_variable(solution, "shift_x", x)
+                set_variable(solution, "shift_y", y)
+                set_variable(solution, "rot_angle", rot_angle)
+                log_meesage(f"Image shit x:{x} y:{y}, rot_angle:{rot_angle}")
+                return solution.judge_pass()
+            else:
+                log_error("Estimation Failed")
+                return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
+
+        except Exception as e:
+            log_error("Error in Estimate: {}".format(e))
+            return solution.judge_fail()
