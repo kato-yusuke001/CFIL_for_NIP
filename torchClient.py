@@ -21,8 +21,8 @@ def log_error(message):
     logging.error(message)
 
 
-HOST = "192.168.11.3" #津の設定
-# HOST = "192.168.11.54" #西門真設定
+# HOST = "192.168.11.3" #津の設定
+HOST = "10.178.64.66" #debug
 PORT = 5000
 
 PROXY = ""
@@ -466,9 +466,10 @@ class ImageRotShift(NIPClient):
     def execute(self, solution):
         log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
-            image_path = get_variable(solution, "image_path")[0]
-            log_meesage("image_path: {}".format(image_path))
-            res = request_post(solution, _act="image_rot_shift", _data="image_path", _value=image_path)
+            image_dir = get_variable(solution, "image_dir")[0]
+            file_name = get_variable(solution, "file_name")[0]
+            log_meesage(f"image_path: {image_dir}, file_name: {file_name}")
+            res = request_posts(solution, _act="image_rot_shift", _data=["image_dir", "file_name"], _value=[image_dir, file_name])
             if(check_res(res)):
                 output = eval(res.text)
                 x = output[0]
@@ -480,9 +481,9 @@ class ImageRotShift(NIPClient):
                 log_meesage(f"Image shit x:{x} y:{y}, rot_angle:{rot_angle}")
                 return solution.judge_pass()
             else:
-                log_error("Estimation Failed")
+                log_error(f"{self.__class__.__name__} Failed")
                 return solution.judge_fail() #　エラーコードで分けて出力できるなら、変数の未定義とでreturnを変える
 
         except Exception as e:
-            log_error("Error in Estimate: {}".format(e))
+            log_error(f"Error in {self.__class__.__name__}: {e}")
             return solution.judge_fail()
