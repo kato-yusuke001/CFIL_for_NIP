@@ -43,8 +43,8 @@ class PerSAM:
         return topk_xy, topk_label, last_xy, last_label
 
     def loadSAM(self):
-        ref_image_path = os.path.join(self.annotation_path, 'original.jpg') #参照用の元画像
-        ref_mask_path = os.path.join(self.annotation_path, 'mask.jpg') #参照用の元マスク画像
+        ref_image_path = os.path.join(self.annotation_path, 'original.png') #参照用の元画像
+        ref_mask_path = os.path.join(self.annotation_path, 'mask.png') #参照用の元マスク画像
         os.makedirs(self.output_path, exist_ok=True)
 
         # Load images and masks

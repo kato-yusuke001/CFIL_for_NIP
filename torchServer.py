@@ -10,16 +10,18 @@ import torch
 
 import json
 
+import pathlib
+
 from CFIL_for_NIP.memory import ApproachMemory
 from CFIL_for_NIP.network import ABN128, ABN256
 from scipy.ndimage import maximum_filter
 from scipy.spatial.transform import Rotation as R
 
-import pytransform3d.rotations as pyrot
-import pytransform3d.transformations as pytr
-from pytransform3d.transform_manager import TransformManager
+# import pytransform3d.rotations as pyrot
+# import pytransform3d.transformations as pytr
+# from pytransform3d.transform_manager import TransformManager
 
-from calib.rs_utils import RealSense
+# from calib.rs_utils import RealSense
 
 import pca
 
@@ -30,8 +32,9 @@ cfil_agent = None
 position_detector = None
 
 # Flask設定
-HOST = "192.168.11.3" #津の設定
-# HOST = "192.168.11.54" #西門真設定
+# HOST = "192.168.11.3" #津の設定
+HOST = "10.178.64.66" #debug設定
+
 PORT = 5000
 app = Flask(__name__)
 
@@ -117,16 +120,16 @@ def Estimate_f():
 ###################################################################
 # Position Detector
 ###################################################################
-@app.route("/initialize_PD", methods=["POST"])
-def initialise_pd():
-    global cfil_agent
-    ret = cfil_agent.initialize_positionDetector()
-    if(ret):
-        log_meesage("Position Detector Initialized")
-        return "Success"
-    else:
-        log_error("Position Detector Initialization Failed")
-        return "False"
+# @app.route("/initialize_PD", methods=["POST"])
+# def initialise_pd():
+#     global cfil_agent
+#     ret = cfil_agent.initialize_positionDetector()
+#     if(ret):
+#         log_meesage("Position Detector Initialized")
+#         return "Success"
+#     else:
+#         log_error("Position Detector Initialization Failed")
+#         return "False"
 
 @app.route("/get_tray_position_force", methods=["POST"])
 def get_tray_position_force():
@@ -152,8 +155,9 @@ def get_positions():
 @app.route("/image_rot_shift", methods=["POST"])
 def image_rot_shift():
     global cfil_agent
-    image_path = request.form["image_path"]
-    ret = cfil_agent.image_rot_shift(image_path)
+    image_dir = request.form["image_dir"]
+    file_name = request.form["file_name"]
+    ret = cfil_agent.image_rot_shift(image_dir, file_name)
     log_meesage(f"Image Rot Shifted: x={ret[0]}, y={ret[1]}, rot_angle={ret[2]}")
     return str(ret)
 
@@ -340,62 +344,62 @@ class Agent:
 # Position Detector
 ###############################################################
 
-    def initialize_positionDetector(self):
-        try:
-            self.camera_id = 0
-            self.tm = TransformManager()
-            self.cam = None
+    # def initialize_positionDetector(self):
+    #     try:
+    #         self.camera_id = 0
+    #         self.tm = TransformManager()
+    #         self.cam = None
         
-            # nishikadoma
-            # crop_settings = [{"crop_size_x": 240, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]
-            # crop_settings = [{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]
-            # crop_settings = [{'crop_size_x': 251, 'crop_size_y': 194, 'crop_center_x': 337, 'crop_center_y': 210}]
+    #         # nishikadoma
+    #         # crop_settings = [{"crop_size_x": 240, "crop_size_y": 240, "crop_center_x": 320, "crop_center_y": 240}]
+    #         # crop_settings = [{'crop_size_x': 273, 'crop_size_y': 212, 'crop_center_x': 338, 'crop_center_y': 212}]
+    #         # crop_settings = [{'crop_size_x': 251, 'crop_size_y': 194, 'crop_center_x': 337, 'crop_center_y': 210}]
 
-            # with open("calib\\camera_info\\crop_settings.json", "r") as f:
-            #     crop_json = json.load(f)
-            #     crop_settings = crop_json["crop_settings"]
+    #         # with open("calib\\camera_info\\crop_settings.json", "r") as f:
+    #         #     crop_json = json.load(f)
+    #         #     crop_settings = crop_json["crop_settings"]
             
-            with open(self.crop_settings_path, "r") as f:
-                crop_json = json.load(f)
-                crop_settings = crop_json["crop_settings"]
+    #         with open(self.crop_settings_path, "r") as f:
+    #             crop_json = json.load(f)
+    #             crop_settings = crop_json["crop_settings"]
 
-            # crop_settings = [{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]
-            # D405  tsu
-            # crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
-            log_meesage(crop_settings)
-            self.cam = RealSense(crop_settings=crop_settings)
+    #         # crop_settings = [{'crop_size_x': 264, 'crop_size_y': 191, 'crop_center_x': 338, 'crop_center_y': 212}]
+    #         # D405  tsu
+    #         # crop_settings = [{"crop_size": 260, "crop_center_x": 350, "crop_center_y": 240}]
+    #         log_meesage(crop_settings)
+    #         self.cam = RealSense(crop_settings=crop_settings)
 
-            # self.ratio = np.load("calib\\camera_info\\ratio.npy")
-            self.ratio = np.load(self.ratio_path)
-            # self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
-            # diff_center = crop_settings[self.camera_id]["crop_center_x"] - 320 
-            # self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size_y"])//2]
-            self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2, crop_settings[self.camera_id]["crop_size_y"]//2]
+    #         # self.ratio = np.load("calib\\camera_info\\ratio.npy")
+    #         self.ratio = np.load(self.ratio_path)
+    #         # self.center_pixels = [self.cam.crop_settings[self.camera_id]["crop_center_x"], self.cam.crop_settings[self.camera_id]["crop_center_y"]]
+    #         # diff_center = crop_settings[self.camera_id]["crop_center_x"] - 320 
+    #         # self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2 - diff_center, (crop_settings[self.camera_id]["crop_size_y"])//2]
+    #         self.center_pixels = [crop_settings[self.camera_id]["crop_size_x"]//2, crop_settings[self.camera_id]["crop_size_y"]//2]
             
-            log_meesage(f"center pixels {self.center_pixels}")
+    #         log_meesage(f"center pixels {self.center_pixels}")
 
-            #nishikadoma
-            # self.center_position = [-0.0809, -0.470]
-            # self.center_position = [-0.010, -0.535]
-            # self.center_position = [-0.03, -0.5]
-            # self.center_position = [0.004998829998830001, -0.4519421305709614]
-            self.center_position = self.center_position
+    #         #nishikadoma
+    #         # self.center_position = [-0.0809, -0.470]
+    #         # self.center_position = [-0.010, -0.535]
+    #         # self.center_position = [-0.03, -0.5]
+    #         # self.center_position = [0.004998829998830001, -0.4519421305709614]
+    #         self.center_position = self.center_position
 
 
-            #tsu
-            # self.center_position = [-0.065, -0.470]
+    #         #tsu
+    #         # self.center_position = [-0.065, -0.470]
 
-            self.camera_pose = np.load("calib/camera_info/camera_pose.npy")
+    #         self.camera_pose = np.load("calib/camera_info/camera_pose.npy")
             
-            self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
+    #         self.register_pose(self.camera_pose[:3], self.camera_pose[3:], "base", "cam")
 
-            self.per_sam.loadPositionDetector()
+    #         self.per_sam.loadPositionDetector()
 
-            return True
+    #         return True
 
-        except Exception as e:
-            log_error("{} : {}".format(type(e), e))
-            return False
+    #     except Exception as e:
+    #         log_error("{} : {}".format(type(e), e))
+    #         return False
 
     def get_tray_position_force(self):
         # 点p0に一番近い点を取得
@@ -465,10 +469,10 @@ class Agent:
 
         return [positions_X, positions_Y, len(positions_X)]
     
-    def register_pose(self, tvec, rvec, source, target):
-        source_T_target = pytr.transform_from(
-            pyrot.matrix_from_compact_axis_angle(rvec), tvec)
-        self.tm.add_transform(target, source, source_T_target)
+    # def register_pose(self, tvec, rvec, source, target):
+    #     source_T_target = pytr.transform_from(
+    #         pyrot.matrix_from_compact_axis_angle(rvec), tvec)
+    #     self.tm.add_transform(target, source, source_T_target)
 
     def remove_pose(self, source, target):
         self.tm.remove_transform(target, source)
@@ -528,8 +532,9 @@ class Agent:
 ###############################################################
 # Segmentation
 ###############################################################  
-    def image_rot_shift(self, image_path):
-        image = cv2.imread(image_path+".jpg")
+    def image_rot_shift(self, image_dir, file_name):
+        image_path = os.path.join(image_dir, file_name)
+        image = cv2.imread(image_path)
         masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
         final_mask = masks[best_idx]
         mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
