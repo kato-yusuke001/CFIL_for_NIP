@@ -23,8 +23,6 @@ from scipy.spatial.transform import Rotation as R
 
 # from calib.rs_utils import RealSense
 
-import pca
-
 from logger import setup_logger
 
 
