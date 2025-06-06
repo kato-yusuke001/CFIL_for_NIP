@@ -21,8 +21,8 @@ def log_error(message):
     logging.error(message)
 
 
-# HOST = "192.168.11.3" #津の設定
-HOST = "10.178.64.66" #debug
+HOST = "192.168.11.3" #津の設定
+# HOST = "10.178.64.66" #debug
 PORT = 5000
 
 PROXY = ""
@@ -174,8 +174,9 @@ class LoadSAMModel(NIPClient):
         try:
             image_save_path = get_variable(solution, "image_path")[0]
             model_path = get_variable(solution, "model_path")[0]
+            sam_type = get_variable(solution, "sam_type")[0]
             log_meesage("sam image_save_path: {}".format(image_save_path))
-            res = request_posts(solution, _act="loadSAMModel", _data=["image_save_path", "model_path"], _value=[image_save_path,model_path])
+            res = request_posts(solution, _act="loadSAMModel", _data=["image_save_path", "model_path", "sam_type"], _value=[image_save_path,model_path,sam_type])
             if(check_res(res)):
                 log_meesage("SAM Model Loaded")
                 return solution.judge_pass()
@@ -464,6 +465,7 @@ class DetectTrayPositions_force(NIPClient):
 # 位置補正リクエスト
 class ImageRotShift(NIPClient):
     def execute(self, solution):
+        s_time = time.time()
         log_meesage(f"### {os.path.basename(__file__)}: {self.__class__.__name__} ###")
         try:
             image_dir = get_variable(solution, "image_dir")[0]
@@ -478,7 +480,7 @@ class ImageRotShift(NIPClient):
                 set_variable(solution, "shift_x", x)
                 set_variable(solution, "shift_y", y)
                 set_variable(solution, "rot_angle", rot_angle)
-                log_meesage(f"Image shit x:{x} y:{y}, rot_angle:{rot_angle}")
+                log_meesage(f"[time:{time.time()-s_time}] Image shit x:{x} y:{y}, rot_angle:{rot_angle}")
                 return solution.judge_pass()
             else:
                 log_error(f"{self.__class__.__name__} Failed")

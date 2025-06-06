@@ -30,8 +30,8 @@ cfil_agent = None
 position_detector = None
 
 # Flask設定
-# HOST = "192.168.11.3" #津の設定
-HOST = "10.178.64.66" #debug設定
+HOST = "192.168.11.3" #津の設定
+# HOST = "10.178.64.66" #debug設定
 
 PORT = 5000
 app = Flask(__name__)
@@ -77,7 +77,8 @@ def loadSAMModel():
     global cfil_agent
     image_save_path = request.form["image_save_path"]
     model_path = request.form["model_path"]
-    ret = cfil_agent.loadSAMModel(image_save_path, model_path)
+    sam_type = request.form["sam_type"]
+    ret = cfil_agent.loadSAMModel(image_save_path, model_path, sam_type)
     if(ret):
         log_meesage("SAM Model Loaded")
         return "Success"
@@ -209,7 +210,7 @@ class Agent:
             log_error("{} : {}".format(type(e), e))
             return False
         
-    def loadSAMModel(self,image_path="", model_path=""):
+    def loadSAMModel(self,image_path="", model_path="", sam_type="vit_b"):
         try:
             from perSam import PerSAM
             print(image_path, model_path)
@@ -225,7 +226,7 @@ class Agent:
                         # output_path=os.path.join(image_path, "masked_images"))
                         output_path=self.output_path)
             
-            self.per_sam.loadSAM()
+            self.per_sam.loadSAM(sam_type=sam_type)
             self.use_sam = True
             return True
         except Exception as e:
@@ -560,13 +561,16 @@ class Agent:
         return (x,y), box, points
 
     def image_rot_shift(self, image_dir, file_name):
+        rate = 0.1  # リサイズ率
         image_path = os.path.join(image_dir, file_name)
         image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.resize(image, None, fx=rate, fy=rate)
         masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
         final_mask = masks[best_idx]
         mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
         mask_image[final_mask, :] = np.array([[0, 0, 128]])
-        (x, y), box, points = self.contours(mask_image)
+        (x, y), box, points = self.contours(mask_image, rate)
 
         rot_angle = box[2]
         if rot_angle > 45:
@@ -580,7 +584,7 @@ class Agent:
             if x < center[0] and y < center[1]:
                 break
         
-        return [x, y, rot_angle]
+        return [x/rate, y/rate, rot_angle]
 
 
 if __name__ == "__main__":
