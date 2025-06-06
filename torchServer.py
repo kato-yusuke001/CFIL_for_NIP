@@ -531,7 +531,36 @@ class Agent:
 
 ###############################################################
 # Segmentation
-###############################################################  
+###############################################################
+    def contours(self, image, rate=1):
+        # グレースケールに変換
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # ２値化
+        retval, bw = cv2.threshold(gray, 50*rate, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+        # 輪郭を抽出
+        #   contours : [領域][Point No][0][x=0, y=1]
+        #   cv2.CHAIN_APPROX_NONE: 中間点も保持する
+        #   cv2.CHAIN_APPROX_SIMPLE: 中間点は保持しない
+        contours, hierarchy = cv2.findContours(bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        
+        # 各輪郭に対する処理
+        for i in range(0, len(contours)):
+
+            # 輪郭の領域を計算
+            area = cv2.contourArea(contours[i])
+            
+            # ノイズ（小さすぎる領域）と全体の輪郭（大きすぎる領域）を除外
+            if area < 1e5*rate or 1e10*rate < area:
+                continue
+
+            x, y, w, h = cv2.boundingRect(contours[i])
+            box = cv2.minAreaRect(contours[i])
+            points = cv2.boxPoints(box)
+
+        return (x,y), box, points
+
     def image_rot_shift(self, image_dir, file_name):
         image_path = os.path.join(image_dir, file_name)
         image = cv2.imread(image_path)
@@ -539,7 +568,7 @@ class Agent:
         final_mask = masks[best_idx]
         mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
         mask_image[final_mask, :] = np.array([[0, 0, 128]])
-        result_image, pt, angle, (x, y), box, points = pca.pca(mask_image)
+        (x, y), box, points = self.contours(mask_image)
 
         rot_angle = box[2]
         if rot_angle > 45:
