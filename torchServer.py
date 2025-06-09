@@ -156,7 +156,8 @@ def image_rot_shift():
     global cfil_agent
     image_dir = request.form["image_dir"]
     file_name = request.form["file_name"]
-    ret = cfil_agent.image_rot_shift(image_dir, file_name)
+    repeat = request.form["repeat"]
+    ret = cfil_agent.image_rot_shift(image_dir, file_name, float(repeat))
     log_meesage(f"Image Rot Shifted: x={ret[0]}, y={ret[1]}, rot_angle={ret[2]}")
     return str(ret)
 
@@ -536,7 +537,7 @@ class Agent:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # ２値化
-        retval, bw = cv2.threshold(gray, 50*rate, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        retval, bw = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
         # 輪郭を抽出
         #   contours : [領域][Point No][0][x=0, y=1]
@@ -553,38 +554,64 @@ class Agent:
             # ノイズ（小さすぎる領域）と全体の輪郭（大きすぎる領域）を除外
             if area < 1e5*rate or 1e10*rate < area:
                 continue
-
+            
             x, y, w, h = cv2.boundingRect(contours[i])
             box = cv2.minAreaRect(contours[i])
             points = cv2.boxPoints(box)
+            break
 
-        return (x,y), box, points
+        return (x,y), box, points, contours[i]
 
-    def image_rot_shift(self, image_dir, file_name):
+    def image_rot_shift(self, image_dir, file_name, repeat=1):
         rate = 0.1  # リサイズ率
         image_path = os.path.join(image_dir, file_name)
         image = cv2.imread(image_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, None, fx=rate, fy=rate)
-        masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
-        final_mask = masks[best_idx]
-        mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
-        mask_image[final_mask, :] = np.array([[0, 0, 128]])
-        (x, y), box, points = self.contours(mask_image, rate)
 
-        rot_angle = box[2]
-        if rot_angle > 45:
-            rot_angle = rot_angle - 90
+        results = []
+        pre_contour = None
+        for i in range(int(repeat)):
+            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
+            final_mask = masks[best_idx]
+            mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
+            mask_image[final_mask, :] = np.array([[0, 0, 128]])
+            (x, y), box, points, contour = self.contours(mask_image, rate)
 
-        center = np.mean(points, axis=0)
+            # 前回のtopk_xyと重なっているなら除外
+            if pre_contour is not None:
+                if cv2.pointPolygonTest(pre_contour, (int(topk_xy[0][0]),int(topk_xy[0][1])), False) > 0:
+                    log_meesage("inside pre_contour")
+                    continue
+            
+            # pre_topk_xy = (topk_xy[0][0], topk_xy[0][1])
+            pre_contour = contour
+            
+            rot_angle = box[2]
+            if rot_angle > 45:
+                rot_angle = rot_angle - 90
 
-        # 2. 各点を (x, y) として、左上・右上・右下・左下に分類
-        for p in points:
-            x, y = p
-            if x < center[0] and y < center[1]:
-                break
-        
-        return [x/rate, y/rate, rot_angle]
+            center = np.mean(points, axis=0)
+
+            # 2. 各点を (x, y) として、左上・右上・右下・左下に分類
+            for p in points:
+                x, y = p
+                if x < center[0] and y < center[1]:
+                    break
+
+            image[final_mask!=0] = [71,89,144]
+            cv2.imwrite(os.path.join(image_dir, f"{file_name}_mask_{i}.jpg"), image)
+
+            results.append([int(x), x/rate, y/rate, rot_angle])
+
+        results.sort()
+        results = np.array(results)
+        shit_x = results[:,1].tolist()
+        shit_y = results[:,2].tolist()
+        angles = results[:,3].tolist()
+
+        return [shit_x, shit_y, angles]
+        # return [x/rate, y/rate, rot_angle]
 
 
 if __name__ == "__main__":

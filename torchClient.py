@@ -470,8 +470,9 @@ class ImageRotShift(NIPClient):
         try:
             image_dir = get_variable(solution, "image_dir")[0]
             file_name = get_variable(solution, "file_name")[0]
+            repeat = get_variable(solution, "repeat")[0]
             log_meesage(f"image_path: {image_dir}, file_name: {file_name}")
-            res = request_posts(solution, _act="image_rot_shift", _data=["image_dir", "file_name"], _value=[image_dir, file_name])
+            res = request_posts(solution, _act="image_rot_shift", _data=["image_dir", "file_name", "repeat"], _value=[image_dir, file_name, repeat])
             if(check_res(res)):
                 output = eval(res.text)
                 x = output[0]
