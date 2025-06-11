@@ -159,7 +159,52 @@ class PerSAM:
     #         multimask_output=True)
     #     best_idx = np.argmax(scores)
 
-    #     return masks, best_idx, topk_xy, topk_label       
+    #     return masks, best_idx, topk_xy, topk_label 
+
+    def getTopKPoints(self, test_image):
+        # Image feature encoding
+        self.predictor.set_image(test_image)
+        test_feat = self.predictor.features.squeeze()
+        # Cosine similarity
+        C, h, w = test_feat.shape
+        test_feat = test_feat / test_feat.norm(dim=0, keepdim=True)
+        test_feat = test_feat.reshape(C, h * w)
+        sim = self.target_feat @ test_feat
+        sim = sim.reshape(1, 1, h, w)
+        sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
+        sim = self.predictor.model.postprocess_masks(
+                        sim,
+                        input_size=self.predictor.input_size,
+                        original_size=self.predictor.original_size).squeeze()
+        
+        topk_xy, topk_label = self.point_selection(sim, topk=1)
+        return topk_xy, topk_label
+    
+    def getSAMMask(self, topk_xy, topk_label):
+        # First-step prediction
+        masks, scores, logits, logits_high = self.predictor.predict(
+                    point_coords=topk_xy,
+                    point_labels=topk_label,
+                    multimask_output=True)
+        best_idx = np.argmax(scores)
+
+        # Cascaded Post-refinement-2
+        y, x = np.nonzero(masks[best_idx])
+        x_min = x.min()
+        x_max = x.max()
+        y_min = y.min()
+        y_max = y.max()
+        input_box = np.array([x_min, y_min, x_max, y_max])
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy,
+            point_labels=topk_label,
+            box=input_box[None, :],
+            mask_input=logits[best_idx: best_idx + 1, :, :],
+            multimask_output=True)
+        best_idx = np.argmax(scores)
+        # print("scores", scores)
+
+        return masks, best_idx
     
     def executePerSAM(self, test_image, show_heatmap=False):             
         # Image feature encoding

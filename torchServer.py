@@ -5,6 +5,7 @@ import logging
 import cv2
 import numpy as np
 from datetime import datetime
+import time
 from flask import Flask, request
 import torch
 
@@ -544,15 +545,26 @@ class Agent:
         #   cv2.CHAIN_APPROX_NONE: 中間点も保持する
         #   cv2.CHAIN_APPROX_SIMPLE: 中間点は保持しない
         contours, hierarchy = cv2.findContours(bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+        cv2.imwrite(os.path.join(self.output_path, "contours.jpg"), cv2.drawContours(image.copy(), contours, -1, (0, 255, 0), 10))
+        print(os.path.join(self.output_path, "contours.jpg"))
         
         # 各輪郭に対する処理
+        x,y = None, None
+        box = None
+        points = None
+        if len(contours) == 0:
+            log_meesage("No contours found")
+            return (None, None), None, None, None
+        
         for i in range(0, len(contours)):
 
             # 輪郭の領域を計算
             area = cv2.contourArea(contours[i])
             
             # ノイズ（小さすぎる領域）と全体の輪郭（大きすぎる領域）を除外
-            if area < 1e5*rate or 1e10*rate < area:
+            log_meesage(f"Contour {i}: area={area}")
+            if area < 3.75e6*rate*rate or 1.5e7*rate*rate < area:
                 continue
             
             x, y, w, h = cv2.boundingRect(contours[i])
@@ -563,29 +575,46 @@ class Agent:
         return (x,y), box, points, contours[i]
 
     def image_rot_shift(self, image_dir, file_name, repeat=1):
-        rate = 0.1  # リサイズ率
+        rate = 0.2  # リサイズ率
         image_path = os.path.join(image_dir, file_name)
         image = cv2.imread(image_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, None, fx=rate, fy=rate)
 
         results = []
-        pre_contour = None
+        pre_contour = []
         for i in range(int(repeat)):
-            masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
+            # masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
+            s_time = time.time()
+            topk_xy, topk_label = self.per_sam.getTopKPoints(image)
+            print(f"getTopKPoints time: {time.time() - s_time:.3f} sec")
+            # 前回のtopk_xyと重なっているなら除外
+            inside_pre_contour = False
+            for pc in pre_contour:
+                if cv2.pointPolygonTest(pc, (int(topk_xy[0][0]),int(topk_xy[0][1])), False) > 0:
+                    log_meesage("inside pre_contour")
+                    inside_pre_contour = True
+                    break
+
+            if inside_pre_contour:
+                log_meesage("Skipping PerSAM due to inside pre_contour")
+                continue
+            
+            masks, best_idx = self.per_sam.getSAMMask(topk_xy, topk_label)
+            print(f"getSAMMask time: {time.time() - s_time:.3f} sec")
             final_mask = masks[best_idx]
             mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
             mask_image[final_mask, :] = np.array([[0, 0, 128]])
             (x, y), box, points, contour = self.contours(mask_image, rate)
+            log_meesage(f"Contour found: {x}, {y}, box: {box}, points: {points}")
 
-            # 前回のtopk_xyと重なっているなら除外
-            if pre_contour is not None:
-                if cv2.pointPolygonTest(pre_contour, (int(topk_xy[0][0]),int(topk_xy[0][1])), False) > 0:
-                    log_meesage("inside pre_contour")
-                    continue
+            if x is None and y is None:
+                log_meesage("No contours found after PerSAM")
+                # return [[0], [0], [0]]
+                continue           
             
             # pre_topk_xy = (topk_xy[0][0], topk_xy[0][1])
-            pre_contour = contour
+            pre_contour.append(contour)
             
             rot_angle = box[2]
             if rot_angle > 45:
@@ -600,7 +629,8 @@ class Agent:
                     break
 
             image[final_mask!=0] = [71,89,144]
-            cv2.imwrite(os.path.join(image_dir, f"{file_name}_mask_{i}.jpg"), image)
+            output_image = cv2.drawMarker(image.copy(), topk_xy[0], (0, 255, 0), markerType=cv2.MARKER_STAR, markerSize=10)
+            cv2.imwrite(os.path.join(image_dir, f"{file_name}_mask_{i}.jpg"), cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR))
 
             results.append([int(x), x/rate, y/rate, rot_angle])
 
