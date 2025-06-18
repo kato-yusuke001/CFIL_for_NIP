@@ -188,13 +188,37 @@ class PerSAM:
                     multimask_output=True)
         best_idx = np.argmax(scores)
 
+        _input_boxs = []
+        _scores = []
+        _logits = []
+        for m,s,l in zip(masks, scores, logits):
+            y, x = np.nonzero(m)
+            x_min = x.min()
+            x_max = x.max()
+            y_min = y.min()
+            y_max = y.max()
+            area = np.count_nonzero(m)
+            _input_box = np.array([x_min, y_min, x_max, y_max])
+            print("score ", s, "input_box ", _input_box, "count ", area) 
+            # if area < 1e6 or 1e7 < area:
+            if area < 3.5e6 or 1.5e7 < area:
+                continue
+            else:
+                _input_boxs.append(_input_box)
+                _scores.append(s)
+                _logits.append(l)
+                # input_box = _input_box
+        
+        best_idx = np.argmax(_scores)
+        input_box = _input_boxs[np.argmax(_scores)]
+
         # Cascaded Post-refinement-2
-        y, x = np.nonzero(masks[best_idx])
-        x_min = x.min()
-        x_max = x.max()
-        y_min = y.min()
-        y_max = y.max()
-        input_box = np.array([x_min, y_min, x_max, y_max])
+        # y, x = np.nonzero(masks[best_idx])
+        # x_min = x.min()
+        # x_max = x.max()
+        # y_min = y.min()
+        # y_max = y.max()
+        # input_box = np.array([x_min, y_min, x_max, y_max])
         masks, scores, logits, _ = self.predictor.predict(
             point_coords=topk_xy,
             point_labels=topk_label,
