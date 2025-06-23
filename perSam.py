@@ -20,7 +20,7 @@ class PerSAM:
                  output_path="sam\\results"):
         self.annotation_path = annotation_path
         self.output_path = output_path
-
+        self.ref_mask_area = None
 
     # def point_selection(self, mask_sim, topk=1):
     #     # Top-1 point selection
@@ -64,6 +64,8 @@ class PerSAM:
         ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
         ref_mask = cv2.imread(ref_mask_path)
         ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
+
+        self.ref_mask_area = np.count_nonzero(ref_mask)
         print(ref_image.shape, ref_mask.shape)
         print("======> Load SAM" )
         #学習済みモデルを指定
@@ -201,7 +203,7 @@ class PerSAM:
             _input_box = np.array([x_min, y_min, x_max, y_max])
             print("score ", s, "input_box ", _input_box, "count ", area) 
             # if area < 1e6 or 1e7 < area:
-            if area < 3.5e6 or 1.5e7 < area:
+            if area < self.ref_mask_area*0.8 or self.ref_mask_area*1.2 < area:
                 continue
             else:
                 _input_boxs.append(_input_box)
@@ -229,6 +231,9 @@ class PerSAM:
         # print("scores", scores)
 
         return masks, best_idx
+    
+    def getRefMaskArea(self):
+        return self.ref_mask_area
     
     def executePerSAM(self, test_image, show_heatmap=False):             
         # Image feature encoding

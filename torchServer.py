@@ -563,9 +563,11 @@ class Agent:
             area = cv2.contourArea(contours[i])
             
             # ノイズ（小さすぎる領域）と全体の輪郭（大きすぎる領域）を除外
-            log_meesage(f"Contour {i}: area={area}")
-            if area < 3.75e6*rate*rate or 1.5e7*rate*rate < area:
-                continue
+            ref_mask_area = self.per_sam.getRefMaskArea()
+            log_meesage(f"Contour {i}: area={area}, ref_mask_area: {ref_mask_area}")
+            if area < ref_mask_area*0.8 or ref_mask_area*1.2 < area
+            # if area < 3.75e6*rate*rate or 1.5e7*rate*rate < area:
+            #     continue
             
             x, y, w, h = cv2.boundingRect(contours[i])
             box = cv2.minAreaRect(contours[i])
@@ -599,7 +601,7 @@ class Agent:
             if inside_pre_contour:
                 log_meesage("Skipping PerSAM due to inside pre_contour")
                 continue
-            
+
             masks, best_idx = self.per_sam.getSAMMask(topk_xy, topk_label)
             print(f"getSAMMask time: {time.time() - s_time:.3f} sec")
             final_mask = masks[best_idx]
