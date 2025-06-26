@@ -22,6 +22,7 @@ class PerSAM:
         self.output_path = output_path
         self.ref_mask_area = None
 
+
     # def point_selection(self, mask_sim, topk=1):
     #     # Top-1 point selection
     #     w, h = mask_sim.shape
@@ -53,6 +54,26 @@ class PerSAM:
         topk_xy = topk_xy.cpu().numpy()
         
         return topk_xy, topk_label
+    
+    def point_selection2(self, mask_sim, topk=1):
+        # Top-1 point selection
+        w, h = mask_sim.shape
+        topk_xy = mask_sim.flatten(0).topk(topk)[1]
+        topk_x = (topk_xy // h).unsqueeze(0)
+        topk_y = (topk_xy - topk_x * h)
+        topk_xy = torch.cat((topk_y, topk_x), dim=0).permute(1, 0)
+        topk_label = np.array([1] * topk)
+        topk_xy = topk_xy.cpu().numpy()
+            
+        # Top-last point selection
+        last_xy = mask_sim.flatten(0).topk(topk, largest=False)[1]
+        last_x = (last_xy // h).unsqueeze(0)
+        last_y = (last_xy - last_x * h)
+        last_xy = torch.cat((last_y, last_x), dim=0).permute(1, 0)
+        last_label = np.array([0] * topk)
+        last_xy = last_xy.cpu().numpy()
+        
+        return topk_xy, topk_label, last_xy, last_label
 
     def loadSAM(self, sam_type="vit_b"):
         ref_image_path = os.path.join(self.annotation_path, 'original.png') #参照用の元画像
@@ -60,12 +81,19 @@ class PerSAM:
         os.makedirs(self.output_path, exist_ok=True)
 
         # Load images and masks
+        rate = 0.2
         ref_image = cv2.imread(ref_image_path)
         ref_image = cv2.cvtColor(ref_image, cv2.COLOR_BGR2RGB)
+        ref_image = cv2.resize(ref_image, None, fx=rate, fy=rate)
         ref_mask = cv2.imread(ref_mask_path)
         ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
+        ref_mask = cv2.resize(ref_mask, None, fx=rate, fy=rate)
+
+        gt_mask = torch.tensor(ref_mask)[:, :, 0] > 0 
+        gt_mask = gt_mask.float().unsqueeze(0).flatten(1).cuda()
 
         self.ref_mask_area = np.count_nonzero(ref_mask)
+
         print(ref_image.shape, ref_mask.shape)
         print("======> Load SAM" )
         #学習済みモデルを指定
@@ -100,7 +128,8 @@ class PerSAM:
         self.target_feat_max = torch.max(self.target_feat, dim=0)[0]
         self.target_feat = (self.target_feat_max / 2 + self.target_feat_mean / 2).unsqueeze(0)
     
-    
+        self.weight = self.finetune_weight(ref_feat=ref_feat, ref_mask=ref_mask, ref_image=ref_image, gt_mask=gt_mask)
+
     # def executePerSAM(self, test_image, show_heatmap=False):             
     #     # Image feature encoding
     #     self.predictor.set_image(test_image)
@@ -163,6 +192,88 @@ class PerSAM:
 
     #     return masks, best_idx, topk_xy, topk_label 
 
+    def finetune_weight(self, ref_feat, ref_mask, ref_image, gt_mask):
+        print("======> Obtain Location Prior" )
+        # # Image features encoding
+        # ref_mask = self.predictor.set_image(ref_image, ref_mask)
+        # ref_feat = self.predictor.features.squeeze().permute(1, 2, 0)
+        # ref_mask = F.interpolate(ref_mask, size=ref_feat.shape[0: 2], mode="bilinear")
+        # ref_mask = ref_mask.squeeze()[0]
+
+        # Target feature extraction
+        self.target_feat = ref_feat[ref_mask > 0]
+        target_feat_mean = self.target_feat.mean(0)
+        target_feat_max = torch.max(self.target_feat, dim=0)[0]
+        self.target_feat = (target_feat_max / 2 + target_feat_mean / 2).unsqueeze(0)
+
+        # Cosine similarity
+        h, w, C = ref_feat.shape
+        self.target_feat = self.target_feat / self.target_feat.norm(dim=-1, keepdim=True)
+        ref_feat = ref_feat / ref_feat.norm(dim=-1, keepdim=True)
+        ref_feat = ref_feat.permute(2, 0, 1).reshape(C, h * w)
+        sim = self.target_feat @ ref_feat
+
+        # if weight is not None:
+        #     self.weights_np = weight
+        #     self.weights = torch.tensor(weight).cuda()
+        #     return None
+
+        sim = sim.reshape(1, 1, h, w)
+        sim = F.interpolate(sim, scale_factor=4, mode="bilinear")
+        sim = self.predictor.model.postprocess_masks(
+                        sim,
+                        input_size=self.predictor.input_size,
+                        original_size=self.predictor.original_size).squeeze()
+
+        # Positive location prior
+        topk_xy, topk_label = self.point_selection_f(sim, topk=1)
+
+
+        print('======> Start Training')
+        lr = 1e-3
+        train_epoch = 1000
+        log_epoch = 200
+        # Learnable mask weights
+        mask_weights = Mask_Weights().cuda()
+        mask_weights.train()
+
+        optimizer = torch.optim.AdamW(mask_weights.parameters(), lr=lr, eps=1e-4)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, train_epoch)
+
+        for train_idx in range(train_epoch):
+
+            # Run the decoder
+            masks, scores, logits, logits_high = self.predictor.predict(
+                point_coords=topk_xy,
+                point_labels=topk_label,
+                multimask_output=True)
+            logits_high = logits_high.flatten(1)
+
+            # Weighted sum three-scale masks
+            weights = torch.cat((1 - mask_weights.weights.sum(0).unsqueeze(0), mask_weights.weights), dim=0)
+            logits_high = logits_high * weights
+            logits_high = logits_high.sum(0).unsqueeze(0)
+
+            dice_loss = self.calculate_dice_loss(logits_high, gt_mask)
+            focal_loss = self.calculate_sigmoid_focal_loss(logits_high, gt_mask)
+            loss = dice_loss + focal_loss
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
+            if train_idx % log_epoch == 0:
+                print('Train Epoch: {:} / {:}'.format(train_idx, train_epoch))
+                current_lr = scheduler.get_last_lr()[0]
+                print('LR: {:.6f}, Dice_Loss: {:.4f}, Focal_Loss: {:.4f}'.format(current_lr, dice_loss.item(), focal_loss.item()))
+
+
+        mask_weights.eval()
+        self.weights = torch.cat((1 - mask_weights.weights.sum(0).unsqueeze(0), mask_weights.weights), dim=0)
+        self.weights_np = self.weights.detach().cpu().numpy()
+        return self.weights_np
+
     def getTopKPoints(self, test_image):
         # Image feature encoding
         self.predictor.set_image(test_image)
@@ -179,8 +290,11 @@ class PerSAM:
                         input_size=self.predictor.input_size,
                         original_size=self.predictor.original_size).squeeze()
         
-        topk_xy, topk_label = self.point_selection(sim, topk=1)
-        return topk_xy, topk_label
+        # topk_xy, topk_label = self.point_selection(sim, topk=1)
+        topk_xy_i, topk_label_i, last_xy_i, last_label_i = self.point_selection2(sim, topk=1)
+        topk_xy = np.concatenate([topk_xy_i, last_xy_i], axis=0)
+        topk_label = np.concatenate([topk_label_i, last_label_i], axis=0)
+        return topk_xy, topk_label, sim
     
     def getSAMMask(self, topk_xy, topk_label):
         # First-step prediction
@@ -188,11 +302,68 @@ class PerSAM:
                     point_coords=topk_xy,
                     point_labels=topk_label,
                     multimask_output=True)
+        # best_idx = np.argmax(scores)
+
+             # Weighted sum three-scale masks
+        logits_high = logits_high * self.weights.unsqueeze(-1)
+        logit_high = logits_high.sum(0)
+        mask = (logit_high > 0).detach().cpu().numpy()
+
+        logits = logits * self.weights_np[..., None]
+        logit = logits.sum(0)
+
+         # Cascaded Post-refinement-1
+        y, x = np.nonzero(mask)
+        x_min = x.min()
+        x_max = x.max()
+        y_min = y.min()
+        y_max = y.max()
+        input_box = np.array([x_min, y_min, x_max, y_max])
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy,
+            point_labels=topk_label,
+            box=input_box[None, :],
+            mask_input=logit[None, :, :],
+            multimask_output=True)
         best_idx = np.argmax(scores)
 
-        _input_boxs = []
+        # _input_boxs = []
+        # _scores = []
+        # _logits = []
+        # for m,s,l in zip(masks, scores, logits):
+        #     y, x = np.nonzero(m)
+        #     x_min = x.min()
+        #     x_max = x.max()
+        #     y_min = y.min()
+        #     y_max = y.max()
+        #     area = np.count_nonzero(m)
+        #     _input_box = np.array([x_min, y_min, x_max, y_max])
+        #     print("score ", s, " input_box ", _input_box, " area ", area, " ref_area ", self.ref_mask_area) 
+        #     # if area < 1e6 or 1e7 < area:
+        #     if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
+        #         continue
+        #     else:
+        #         _input_boxs.append(_input_box)
+        #         _scores.append(s)
+        #         _logits.append(l)
+        #         # input_box = _input_box
+        # if len(_scores) > 0:
+        #     best_idx = np.argmax(_scores)
+        #     input_box = _input_boxs[np.argmax(_scores)]
+        # else:
+        #     return None, None
+
+        # Cascaded Post-refinement-2
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy,
+            point_labels=topk_label,
+            box=input_box[None, :],
+            mask_input=logits[best_idx: best_idx + 1, :, :],
+            multimask_output=True)
+        # best_idx = np.argmax(scores)
+
         _scores = []
-        _logits = []
+        _masks = []
         for m,s,l in zip(masks, scores, logits):
             y, x = np.nonzero(m)
             x_min = x.min()
@@ -200,35 +371,83 @@ class PerSAM:
             y_min = y.min()
             y_max = y.max()
             area = np.count_nonzero(m)
-            _input_box = np.array([x_min, y_min, x_max, y_max])
-            print("score ", s, "input_box ", _input_box, "count ", area) 
+            print("score ", s, " input_box ", "area ", area, " ref_area ", self.ref_mask_area) 
             # if area < 1e6 or 1e7 < area:
-            if area < self.ref_mask_area*0.8 or self.ref_mask_area*1.2 < area:
+            if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
                 continue
             else:
-                _input_boxs.append(_input_box)
                 _scores.append(s)
-                _logits.append(l)
-                # input_box = _input_box
-        
-        best_idx = np.argmax(_scores)
-        input_box = _input_boxs[np.argmax(_scores)]
+                _masks.append(m)
+        if len(_scores) > 0:
+            best_idx = np.argmax(_scores)
+            masks = _masks
+        else:
+            return None, None
+        print(f"best index {best_idx}")
+
+        return masks, best_idx
+    
+    def getSAMMask2(self, topk_xy, topk_label, sim):
+        # Obtain the target guidance for cross-attention layers
+        sim = (sim - sim.mean()) / torch.std(sim)
+        sim = F.interpolate(sim.unsqueeze(0).unsqueeze(0), size=(64, 64), mode="bilinear")
+        attn_sim = sim.sigmoid_().unsqueeze(0).flatten(3)
+
+        # First-step prediction
+        masks, scores, logits, _ = self.predictor.predict(
+            point_coords=topk_xy, 
+            point_labels=topk_label, 
+            multimask_output=False,
+            attn_sim=attn_sim,  # Target-guided Attention
+            target_embedding=self.target_embedding  # Target-semantic Prompting
+        )
+        best_idx = 0
+
+        # Cascaded Post-refinement-1
+        masks, scores, logits, _ = self.predictor.predict(
+                    point_coords=topk_xy,
+                    point_labels=topk_label,
+                    mask_input=logits[best_idx: best_idx + 1, :, :], 
+                    multimask_output=True)
+        best_idx = np.argmax(scores)
 
         # Cascaded Post-refinement-2
-        # y, x = np.nonzero(masks[best_idx])
-        # x_min = x.min()
-        # x_max = x.max()
-        # y_min = y.min()
-        # y_max = y.max()
-        # input_box = np.array([x_min, y_min, x_max, y_max])
+        y, x = np.nonzero(masks[best_idx])
+        x_min = x.min()
+        x_max = x.max()
+        y_min = y.min()
+        y_max = y.max()
+        input_box = np.array([x_min, y_min, x_max, y_max])
         masks, scores, logits, _ = self.predictor.predict(
             point_coords=topk_xy,
             point_labels=topk_label,
             box=input_box[None, :],
             mask_input=logits[best_idx: best_idx + 1, :, :],
             multimask_output=True)
-        best_idx = np.argmax(scores)
-        # print("scores", scores)
+        # best_idx = np.argmax(scores)
+
+        _scores = []
+        _masks = []
+        for m,s,l in zip(masks, scores, logits):
+            y, x = np.nonzero(m)
+            x_min = x.min()
+            x_max = x.max()
+            y_min = y.min()
+            y_max = y.max()
+            area = np.count_nonzero(m)
+            print("score ", s, " input_box ", "area ", area, " ref_area ", self.ref_mask_area) 
+            # if area < 1e6 or 1e7 < area:
+            if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
+                continue
+            else:
+                _scores.append(s)
+                _masks.append(m)
+        if len(_scores) > 0:
+            best_idx = np.argmax(_scores)
+            masks = _masks
+        else:
+            return None, None
+        print(f"best index {best_idx}")
 
         return masks, best_idx
     

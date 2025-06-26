@@ -31,7 +31,7 @@ cfil_agent = None
 position_detector = None
 
 # Flask設定
-HOST = "192.168.11.3" #津の設定
+HOST = "192.168.0.3" #津の設定
 # HOST = "10.178.64.66" #debug設定
 
 PORT = 5000
@@ -546,8 +546,8 @@ class Agent:
         #   cv2.CHAIN_APPROX_SIMPLE: 中間点は保持しない
         contours, hierarchy = cv2.findContours(bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
-        cv2.imwrite(os.path.join(self.output_path, "contours.jpg"), cv2.drawContours(image.copy(), contours, -1, (0, 255, 0), 10))
-        print(os.path.join(self.output_path, "contours.jpg"))
+        # cv2.imwrite(os.path.join(self.output_path, "contours.jpg"), cv2.drawContours(image.copy(), contours, -1, (0, 255, 0), 10))
+        # print(os.path.join(self.output_path, "contours.jpg"))
         
         # 各輪郭に対する処理
         x,y = None, None
@@ -561,14 +561,14 @@ class Agent:
 
             # 輪郭の領域を計算
             area = cv2.contourArea(contours[i])
+            cv2.imwrite(os.path.join(self.output_path, f"contours_{i}_{time.time()}.jpg"), cv2.drawContours(image.copy(), contours[i], -1, (0, 255, 0), 10))
+
             
             # ノイズ（小さすぎる領域）と全体の輪郭（大きすぎる領域）を除外
             ref_mask_area = self.per_sam.getRefMaskArea()
-            log_meesage(f"Contour {i}: area={area}, ref_mask_area: {ref_mask_area}")
-            if area < ref_mask_area*0.8 or ref_mask_area*1.2 < area
-            # if area < 3.75e6*rate*rate or 1.5e7*rate*rate < area:
-            #     continue
-            
+            # log_meesage(f"Contour {i}: area={area}")
+            if area < ref_mask_area*0.9 or ref_mask_area*1.1 < area:
+                continue
             x, y, w, h = cv2.boundingRect(contours[i])
             box = cv2.minAreaRect(contours[i])
             points = cv2.boxPoints(box)
@@ -588,7 +588,7 @@ class Agent:
         for i in range(int(repeat)):
             # masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
             s_time = time.time()
-            topk_xy, topk_label = self.per_sam.getTopKPoints(image)
+            topk_xy, topk_label, sim = self.per_sam.getTopKPoints(image)
             print(f"getTopKPoints time: {time.time() - s_time:.3f} sec")
             # 前回のtopk_xyと重なっているなら除外
             inside_pre_contour = False
@@ -601,8 +601,11 @@ class Agent:
             if inside_pre_contour:
                 log_meesage("Skipping PerSAM due to inside pre_contour")
                 continue
-
+            
             masks, best_idx = self.per_sam.getSAMMask(topk_xy, topk_label)
+            # masks, best_idx = self.per_sam.getSAMMask2(topk_xy, topk_label, sim)
+            if masks is None:
+                return [[0], [0], [0]]
             print(f"getSAMMask time: {time.time() - s_time:.3f} sec")
             final_mask = masks[best_idx]
             mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
