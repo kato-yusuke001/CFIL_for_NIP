@@ -128,7 +128,7 @@ class PerSAM:
         self.target_feat_max = torch.max(self.target_feat, dim=0)[0]
         self.target_feat = (self.target_feat_max / 2 + self.target_feat_mean / 2).unsqueeze(0)
     
-        self.weight = self.finetune_weight(ref_feat=ref_feat, ref_mask=ref_mask, ref_image=ref_image, gt_mask=gt_mask)
+        # self.weight = self.finetune_weight(ref_feat=ref_feat, ref_mask=ref_mask, ref_image=ref_image, gt_mask=gt_mask)
 
     # def executePerSAM(self, test_image, show_heatmap=False):             
     #     # Image feature encoding
@@ -304,54 +304,54 @@ class PerSAM:
                     multimask_output=True)
         # best_idx = np.argmax(scores)
 
-             # Weighted sum three-scale masks
-        logits_high = logits_high * self.weights.unsqueeze(-1)
-        logit_high = logits_high.sum(0)
-        mask = (logit_high > 0).detach().cpu().numpy()
+        # # Weighted sum three-scale masks
+        # logits_high = logits_high * self.weights.unsqueeze(-1)
+        # logit_high = logits_high.sum(0)
+        # mask = (logit_high > 0).detach().cpu().numpy()
 
-        logits = logits * self.weights_np[..., None]
-        logit = logits.sum(0)
+        # logits = logits * self.weights_np[..., None]
+        # logit = logits.sum(0)
 
-         # Cascaded Post-refinement-1
-        y, x = np.nonzero(mask)
-        x_min = x.min()
-        x_max = x.max()
-        y_min = y.min()
-        y_max = y.max()
-        input_box = np.array([x_min, y_min, x_max, y_max])
-        masks, scores, logits, _ = self.predictor.predict(
-            point_coords=topk_xy,
-            point_labels=topk_label,
-            box=input_box[None, :],
-            mask_input=logit[None, :, :],
-            multimask_output=True)
-        best_idx = np.argmax(scores)
+        #  # Cascaded Post-refinement-1
+        # y, x = np.nonzero(mask)
+        # x_min = x.min()
+        # x_max = x.max()
+        # y_min = y.min()
+        # y_max = y.max()
+        # input_box = np.array([x_min, y_min, x_max, y_max])
+        # masks, scores, logits, _ = self.predictor.predict(
+        #     point_coords=topk_xy,
+        #     point_labels=topk_label,
+        #     box=input_box[None, :],
+        #     mask_input=logit[None, :, :],
+        #     multimask_output=True)
+        # best_idx = np.argmax(scores)
 
-        # _input_boxs = []
-        # _scores = []
-        # _logits = []
-        # for m,s,l in zip(masks, scores, logits):
-        #     y, x = np.nonzero(m)
-        #     x_min = x.min()
-        #     x_max = x.max()
-        #     y_min = y.min()
-        #     y_max = y.max()
-        #     area = np.count_nonzero(m)
-        #     _input_box = np.array([x_min, y_min, x_max, y_max])
-        #     print("score ", s, " input_box ", _input_box, " area ", area, " ref_area ", self.ref_mask_area) 
-        #     # if area < 1e6 or 1e7 < area:
-        #     if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
-        #         continue
-        #     else:
-        #         _input_boxs.append(_input_box)
-        #         _scores.append(s)
-        #         _logits.append(l)
-        #         # input_box = _input_box
-        # if len(_scores) > 0:
-        #     best_idx = np.argmax(_scores)
-        #     input_box = _input_boxs[np.argmax(_scores)]
-        # else:
-        #     return None, None
+        _input_boxs = []
+        _scores = []
+        _logits = []
+        for m,s,l in zip(masks, scores, logits):
+            y, x = np.nonzero(m)
+            x_min = x.min()
+            x_max = x.max()
+            y_min = y.min()
+            y_max = y.max()
+            area = np.count_nonzero(m)
+            _input_box = np.array([x_min, y_min, x_max, y_max])
+            print("score ", s, " input_box ", _input_box, " area ", area, " ref_area ", self.ref_mask_area) 
+            # if area < 1e6 or 1e7 < area:
+            if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
+                continue
+            else:
+                _input_boxs.append(_input_box)
+                _scores.append(s)
+                _logits.append(l)
+                # input_box = _input_box
+        if len(_scores) > 0:
+            best_idx = np.argmax(_scores)
+            input_box = _input_boxs[np.argmax(_scores)]
+        else:
+            return None, None
 
         # Cascaded Post-refinement-2
         masks, scores, logits, _ = self.predictor.predict(

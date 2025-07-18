@@ -583,13 +583,14 @@ class Agent:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, None, fx=rate, fy=rate)
 
-        results = []
+        # results = []
+        results = [[9999,0,0,0], [9999,0,0,0], [9999,0,0,0], [9999,0,0,0]]
         pre_contour = []
         for i in range(int(repeat)):
             # masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
             s_time = time.time()
             topk_xy, topk_label, sim = self.per_sam.getTopKPoints(image)
-            print(f"getTopKPoints time: {time.time() - s_time:.3f} sec")
+            log_meesage(f"getTopKPoints time: {time.time() - s_time:.3f} sec")
             # 前回のtopk_xyと重なっているなら除外
             inside_pre_contour = False
             for pc in pre_contour:
@@ -605,7 +606,9 @@ class Agent:
             masks, best_idx = self.per_sam.getSAMMask(topk_xy, topk_label)
             # masks, best_idx = self.per_sam.getSAMMask2(topk_xy, topk_label, sim)
             if masks is None:
-                return [[0], [0], [0]]
+                log_meesage("mask is None")
+                # return [[0], [0], [0]]
+                return results
             print(f"getSAMMask time: {time.time() - s_time:.3f} sec")
             final_mask = masks[best_idx]
             mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
@@ -637,17 +640,19 @@ class Agent:
             output_image = cv2.drawMarker(image.copy(), topk_xy[0], (0, 255, 0), markerType=cv2.MARKER_STAR, markerSize=10)
             cv2.imwrite(os.path.join(image_dir, f"{file_name}_mask_{i}.jpg"), cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR))
 
-            results.append([int(x), x/rate, y/rate, rot_angle])
+            # results.append([int(x), x/rate, y/rate, rot_angle])
+            results[i] = [int(x), x/rate, y/rate, rot_angle]
 
         results.sort()
         results = np.array(results)
+        log_meesage(results)
+        log_meesage(results.shape)
         shit_x = results[:,1].tolist()
         shit_y = results[:,2].tolist()
         angles = results[:,3].tolist()
 
         return [shit_x, shit_y, angles]
         # return [x/rate, y/rate, rot_angle]
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
