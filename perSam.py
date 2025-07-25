@@ -329,7 +329,7 @@ class PerSAM:
 
         _input_boxs = []
         _scores = []
-        _logits = []
+        _scores2 = []
         for m,s,l in zip(masks, scores, logits):
             y, x = np.nonzero(m)
             x_min = x.min()
@@ -341,17 +341,18 @@ class PerSAM:
             print("score ", s, " input_box ", _input_box, " area ", area, " ref_area ", self.ref_mask_area) 
             # if area < 1e6 or 1e7 < area:
             if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
-                continue
+                _input_boxs.append(_input_box)
+                _scores.append(0)
+                # continue
             else:
                 _input_boxs.append(_input_box)
                 _scores.append(s)
-                _logits.append(l)
                 # input_box = _input_box
-        if len(_scores) > 0:
-            best_idx = np.argmax(_scores)
-            input_box = _input_boxs[np.argmax(_scores)]
-        else:
-            return None, None
+            _scores2.append(abs(area - self.ref_mask_area))
+
+        # best_idx = np.argmax(_scores)
+        best_idx = np.argmin(_scores2)
+        input_box = _input_boxs[best_idx]
 
         # Cascaded Post-refinement-2
         masks, scores, logits, _ = self.predictor.predict(
@@ -363,6 +364,7 @@ class PerSAM:
         # best_idx = np.argmax(scores)
 
         _scores = []
+        _scores2 = []
         _masks = []
         for m,s,l in zip(masks, scores, logits):
             y, x = np.nonzero(m)
@@ -374,15 +376,18 @@ class PerSAM:
             print("score ", s, " input_box ", "area ", area, " ref_area ", self.ref_mask_area) 
             # if area < 1e6 or 1e7 < area:
             if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
-                continue
+                # continue
+                pass
             else:
                 _scores.append(s)
                 _masks.append(m)
-        if len(_scores) > 0:
-            best_idx = np.argmax(_scores)
-            masks = _masks
-        else:
-            return None, None
+
+            _scores2.append(abs(area - self.ref_mask_area))
+        
+        # best_idx = np.argmax(_scores)
+        best_idx = np.argmin(_scores2)
+        # masks = _masks
+
         print(f"best index {best_idx}")
 
         return masks, best_idx

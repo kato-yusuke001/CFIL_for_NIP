@@ -31,8 +31,8 @@ cfil_agent = None
 position_detector = None
 
 # Flask設定
-HOST = "192.168.0.3" #津の設定
-# HOST = "10.178.64.66" #debug設定
+# HOST = "192.168.0.3" #津の設定
+HOST = "10.178.64.66" #debug設定
 
 PORT = 5000
 app = Flask(__name__)
@@ -584,13 +584,13 @@ class Agent:
         image = cv2.resize(image, None, fx=rate, fy=rate)
 
         # results = []
-        results = [[9999,0,0,0], [9999,0,0,0], [9999,0,0,0], [9999,0,0,0]]
+        results = [[9999,0,0,0], [9999,0,0,0], [9999,0,0,0]]
         pre_contour = []
         for i in range(int(repeat)):
             # masks, best_idx, topk_xy, topk_label = self.per_sam.executePerSAM(image, show_heatmap=False)
             s_time = time.time()
             topk_xy, topk_label, sim = self.per_sam.getTopKPoints(image)
-            log_meesage(f"getTopKPoints time: {time.time() - s_time:.3f} sec")
+            # log_meesage(f"getTopKPoints time: {time.time() - s_time:.3f} sec")
             # 前回のtopk_xyと重なっているなら除外
             inside_pre_contour = False
             for pc in pre_contour:
@@ -608,13 +608,13 @@ class Agent:
             if masks is None:
                 log_meesage("mask is None")
                 # return [[0], [0], [0]]
-                return results
-            print(f"getSAMMask time: {time.time() - s_time:.3f} sec")
+                break
+            # print(f"getSAMMask time: {time.time() - s_time:.3f} sec")
             final_mask = masks[best_idx]
             mask_image = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
             mask_image[final_mask, :] = np.array([[0, 0, 128]])
             (x, y), box, points, contour = self.contours(mask_image, rate)
-            log_meesage(f"Contour found: {x}, {y}, box: {box}, points: {points}")
+            # log_meesage(f"Contour found: {x}, {y}, box: {box}, points: {points}")
 
             if x is None and y is None:
                 log_meesage("No contours found after PerSAM")
@@ -637,16 +637,16 @@ class Agent:
                     break
 
             image[final_mask!=0] = [71,89,144]
-            output_image = cv2.drawMarker(image.copy(), topk_xy[0], (0, 255, 0), markerType=cv2.MARKER_STAR, markerSize=10)
-            cv2.imwrite(os.path.join(image_dir, f"{file_name}_mask_{i}.jpg"), cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR))
+            # output_image = cv2.drawMarker(image.copy(), topk_xy[0], (0, 255, 0), markerType=cv2.MARKER_STAR, markerSize=10)
+            # # cv2.imwrite(os.path.join(image_dir, f"{file_name}_mask_{i}.jpg"), cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR))
 
             # results.append([int(x), x/rate, y/rate, rot_angle])
             results[i] = [int(x), x/rate, y/rate, rot_angle]
 
         results.sort()
         results = np.array(results)
-        log_meesage(results)
-        log_meesage(results.shape)
+        # log_meesage(results)
+        # log_meesage(results.shape)
         shit_x = results[:,1].tolist()
         shit_y = results[:,2].tolist()
         angles = results[:,3].tolist()
