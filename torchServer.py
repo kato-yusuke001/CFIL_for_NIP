@@ -561,7 +561,7 @@ class Agent:
 
             # 輪郭の領域を計算
             area = cv2.contourArea(contours[i])
-            cv2.imwrite(os.path.join(self.output_path, f"contours_{i}_{time.time()}.jpg"), cv2.drawContours(image.copy(), contours[i], -1, (0, 255, 0), 10))
+            # cv2.imwrite(os.path.join(self.output_path, f"contours_{i}_{time.time()}.jpg"), cv2.drawContours(image.copy(), contours[i], -1, (0, 255, 0), 10))
 
             
             # ノイズ（小さすぎる領域）と全体の輪郭（大きすぎる領域）を除外
@@ -604,7 +604,6 @@ class Agent:
                 continue
             
             masks, best_idx = self.per_sam.getSAMMask(topk_xy, topk_label)
-            # masks, best_idx = self.per_sam.getSAMMask2(topk_xy, topk_label, sim)
             if masks is None:
                 log_meesage("mask is None")
                 # return [[0], [0], [0]]

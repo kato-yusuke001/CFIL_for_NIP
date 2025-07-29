@@ -339,15 +339,13 @@ class PerSAM:
             area = np.count_nonzero(m)
             _input_box = np.array([x_min, y_min, x_max, y_max])
             print("score ", s, " input_box ", _input_box, " area ", area, " ref_area ", self.ref_mask_area) 
-            # if area < 1e6 or 1e7 < area:
-            if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
-                _input_boxs.append(_input_box)
+            if area < self.ref_mask_area*0.8 or self.ref_mask_area*1.2 < area:
                 _scores.append(0)
                 # continue
             else:
-                _input_boxs.append(_input_box)
                 _scores.append(s)
                 # input_box = _input_box
+            _input_boxs.append(_input_box)
             _scores2.append(abs(area - self.ref_mask_area))
 
         # best_idx = np.argmax(_scores)
@@ -365,7 +363,6 @@ class PerSAM:
 
         _scores = []
         _scores2 = []
-        _masks = []
         for m,s,l in zip(masks, scores, logits):
             y, x = np.nonzero(m)
             x_min = x.min()
@@ -374,13 +371,11 @@ class PerSAM:
             y_max = y.max()
             area = np.count_nonzero(m)
             print("score ", s, " input_box ", "area ", area, " ref_area ", self.ref_mask_area) 
-            # if area < 1e6 or 1e7 < area:
-            if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
-                # continue
-                pass
-            else:
-                _scores.append(s)
-                _masks.append(m)
+            # if area < self.ref_mask_area*0.8 or self.ref_mask_area*1.2 < area:
+            #     # continue
+            #     _scores.append(0)
+            # else:
+            #     _scores.append(s)
 
             _scores2.append(abs(area - self.ref_mask_area))
         
@@ -442,7 +437,7 @@ class PerSAM:
             area = np.count_nonzero(m)
             print("score ", s, " input_box ", "area ", area, " ref_area ", self.ref_mask_area) 
             # if area < 1e6 or 1e7 < area:
-            if area < self.ref_mask_area*0.9 or self.ref_mask_area*1.1 < area:
+            if area < self.ref_mask_area*0.8 or self.ref_mask_area*1.2 < area:
                 continue
             else:
                 _scores.append(s)
